@@ -178,6 +178,7 @@ public class HybridIndex extends AbstractPluggableIndex {
 			}
 			return rowKeys;
 		case RANGE:
+			
 			Range range = criterion.getRange();
 			HybridRowIndex lowerBound = new HybridRowIndex(range.getLowerBound());
 			HybridRowIndex higherBound = new HybridRowIndex(range.getHigherBound());
