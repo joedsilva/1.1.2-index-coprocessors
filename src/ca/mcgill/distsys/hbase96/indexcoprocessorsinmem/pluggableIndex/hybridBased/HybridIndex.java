@@ -41,6 +41,11 @@ import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractP
 
 public class HybridIndex extends AbstractPluggableIndex implements Serializable {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 2201469150576800226L;
+
 	private transient static Log LOG;
 
 	private TreeMultiset<HybridRowIndex> sortedTree;

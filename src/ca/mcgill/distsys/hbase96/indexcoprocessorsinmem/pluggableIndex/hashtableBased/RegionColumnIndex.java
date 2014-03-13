@@ -44,6 +44,10 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 
 	// private transient static Log LOG;
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -1641091015504586661L;
 	private HashMap<String, RowIndex> rowIndexMap;
 	private transient ReadWriteLock rwLock;
 	private byte[] columnFamily;

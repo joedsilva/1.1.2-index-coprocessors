@@ -10,6 +10,10 @@ import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
 
 public class HybridRowIndex implements Comparable<HybridRowIndex> ,  Serializable{
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 5706149244338474248L;
 	private byte [] rowKey;
 	private TreeSet<byte[]> pkRefs;
 	private transient ReentrantReadWriteLock rwLock;
