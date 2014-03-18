@@ -1,7 +1,9 @@
 package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem;
 
 import java.io.ByteArrayInputStream;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -36,6 +38,7 @@ import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.FSUtils;
 import org.xerial.snappy.SnappyInputStream;
 import org.xerial.snappy.SnappyOutputStream;
@@ -134,7 +137,8 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 		// region.getTableDesc().getName());
 		Path tablePath = FSUtils.getTableDir(FSUtils.getRootDir(configuration),
 				region.getTableDesc().getTableName());
-		Path regionIndexPath = new Path(tablePath, regionName + "__index");
+		Path regionIndexPath = new Path(tablePath,
+				region.getRegionNameAsString() + "__index");
 		FileSystem fs = FileSystem.get(configuration);
 
 		LOG.info("INDEX: Opening index for region [" + new String(regionName)
@@ -151,6 +155,9 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 			}
 			LOG.info("INDEX: Opening postSplit index for region ["
 					+ new String(regionName) + "].");
+		} else {
+			LOG.info("INDEX: Loading index for region ["
+					+ new String(regionName) + "] from file.");
 		}
 
 		FSDataInputStream in = fs.open(regionIndexPath);
@@ -294,6 +301,9 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 
 					// regionIndex.add(idxCol.getColumnFamily(),
 					// idxCol.getQualifier(), region);
+					regionIndex.add(idxCol.getColumnFamily(),
+							idxCol.getQualifier(), region,
+							idxCol.getIndexType(), idxCol.getArguments());
 
 				}
 			}

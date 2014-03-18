@@ -68,7 +68,9 @@ public class RegionIndex implements Serializable {
             	AbstractPluggableIndex newColIdx = AbstractPluggableIndex.getInstance(indexType, arguments);
                 colIndex.put(key, newColIdx);
                 // Modified by Cong
-                newColIdx.fullBuild(region);
+                if(region != null){
+                	newColIdx.fullBuild(region);
+                }
             }
         } finally {
             rwLock.writeLock().unlock();
@@ -112,102 +114,53 @@ public class RegionIndex implements Serializable {
 
     }
 
-    // Not Implemented yet!!!!
+    // Not implemented
     public void split(RegionIndex daughterRegionAIndex, RegionIndex daughterRegionBIndex, byte[] splitRow) throws IOException, ClassNotFoundException {
         rwLock.writeLock().lock();
 
-        try {
-            for (String column : colIndex.keySet()) {
-            	AbstractPluggableIndex rci = colIndex.get(column);
-            	String indexType = "";
-            	Object[] arguments = new Object[1];
-            	AbstractPluggableIndex rciDaughterRegionA = AbstractPluggableIndex.getInstance(indexType, arguments);
-            	AbstractPluggableIndex rciDaughterRegionB = AbstractPluggableIndex.getInstance(indexType, arguments);
-//                for (String value : rci.keySet()) {
-//                    byte[][] sortedPKRefArray = rci.get(value);
-//                    int splitPoint = Arrays.binarySearch(sortedPKRefArray, splitRow, ByteUtil.BYTES_COMPARATOR);
-//                    for (int i = 0; i < sortedPKRefArray.length; i++) {
-//                        if ((splitPoint >= 0 && i < splitPoint) || (splitPoint < 0 && i < Math.abs(splitPoint + 1))) {
-//                            rciDaughterRegionA.internalAdd(Bytes.toBytes(value), sortedPKRefArray[i]);
-//                        } else {
-//                            rciDaughterRegionB.internalAdd(Bytes.toBytes(value), sortedPKRefArray[i]);
-//                        }
-//                    }
-//                }
+//        try {
+//            for (String column : colIndex.keySet()) {
+//            	AbstractPluggableIndex rci = colIndex.get(column);
+//            	String indexType = rci.getIndexType();
+//            	Object[] arguments = rci.getArguments();
+//            	AbstractPluggableIndex rciDaughterRegionA = AbstractPluggableIndex.getInstance(indexType, arguments);
+//            	AbstractPluggableIndex rciDaughterRegionB = AbstractPluggableIndex.getInstance(indexType, arguments);
+//				for (String value : rci.keySet()) {
+//					
+//					byte[][] sortedPKRefArray = rci.get(value);
+//					int splitPoint = Arrays.binarySearch(sortedPKRefArray,
+//							splitRow, ByteUtil.BYTES_COMPARATOR);
+//					for (int i = 0; i < sortedPKRefArray.length; i++) {
+//						if ((splitPoint >= 0 && i < splitPoint)
+//								|| (splitPoint < 0 && i < Math
+//										.abs(splitPoint + 1))) {
+//							rciDaughterRegionA.add(
+//									Bytes.toBytes(value), sortedPKRefArray[i]);
+//						} else {
+//							rciDaughterRegionB.add(
+//									Bytes.toBytes(value), sortedPKRefArray[i]);
+//						}
+//					}
+//				}
 //
-//                if (rciDaughterRegionA.keySet().size() > 0) {                    
-//                    daughterRegionAIndex.colIndex.put(column, rciDaughterRegionA);
-//                }
-//                if (rciDaughterRegionB.keySet().size() > 0) {
-//                    daughterRegionBIndex.colIndex.put(column, rciDaughterRegionB);
-//                }
-
-            }
-            
-
-        } finally {
-            rwLock.writeLock().unlock();
-        }
+//				if (rciDaughterRegionA.keySet().size() > 0) {
+//					daughterRegionAIndex.colIndex.put(column,
+//							rciDaughterRegionA);
+//				}
+//				if (rciDaughterRegionB.keySet().size() > 0) {
+//					daughterRegionBIndex.colIndex.put(column,
+//							rciDaughterRegionB);
+//				}
+//
+//            }
+//            
+//
+//        } finally {
+//            rwLock.writeLock().unlock();
+//        }
     }
 
-    // Return type also changed: BY Cong
-    // We could have only 
-//    public Set<byte[]> filterRowsFromCriteria(List<Criterion<?>> criteriaOnIndexColumns, List<Criterion<?>> criteriaOnNonIndexedColumns,
-//            IndexedColumnQuery query, HRegion region) throws IOException, ClassNotFoundException {
-//        rwLock.readLock().lock();
-//
-//        try {
-//            Set<byte[]> result = new TreeSet<byte[]>(Bytes.BYTES_COMPARATOR);
-//            boolean firstRows = true;
-//            boolean mustPassAll = query.isMustPassAllCriteria();
-//            /*
-//             * Filter from index
-//             */
-//            for (Criterion<?> criterion : criteriaOnIndexColumns) {
-//                String criterionColumn = new String(criterion.getCompareColumn().getFamily())
-//                        + new String(criterion.getCompareColumn().getQualifier());
-//                AbstractPluggableIndex rci = colIndex.get(criterionColumn);
-//
-//                Set<byte[]> partialRows = rci.filterRowsFromCriteria(criterion);
-//                if (!partialRows.isEmpty()) {
-////                if (partialRows !=null) {
-//                    if (firstRows || !mustPassAll ) {
-//                        result.addAll(partialRows);
-//                    } else {
-//                        result.retainAll(partialRows);
-//                        // Check if there are elements still in the set 
-//                        // Modified by Cong 
-//                        if(result.isEmpty()){
-//                        	return null;
-//                        }
-//                    }
-//                } else {
-//                    if (mustPassAll) {
-//                        // intersection of an empty set with any set yields an
-//                        // empty set.
-//                    	// Modified by Cong
-//                        return null;
-//                    } else {
-//                        // continue
-//                    }
-//                }
-//                firstRows = false;
-//            }
-//
-//            /*
-//             * Get the results from the region, further filtering by criteria on
-//             * non indexed columns.
-//             */
-////            FilterList filterList = buildFilterListFromCriteria(criteriaOnNonIndexedColumns, query.isMustPassAllCriteria());
-////            List<ProtoResult> filteredRows = prefilteredLocalMultiGet(result, filterList, query.getColumnList(), region);
-//
-//            // Change the return type as well
-//            return result;
-//        } finally {
-//            rwLock.readLock().unlock();
-//        }
-//
-//    }
+ 
 
     public List<ProtoResult> filterRowsFromCriteria(List<Criterion<?>> criteriaOnIndexColumns, List<Criterion<?>> criteriaOnNonIndexedColumns,
             IndexedColumnQuery query, HRegion region) throws IOException, ClassNotFoundException {
@@ -232,7 +185,7 @@ public class RegionIndex implements Serializable {
                         result.addAll(partialRows);
                     } else {
                         result.retainAll(partialRows);
-                    }
+                    }              
                 } else {
                     if (mustPassAll) {
                         // intersection of an empty set with any set yields an
