@@ -6,6 +6,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
+import ca.mcgill.distsys.hbase.indexcoprocessorsinmem.RowIndex;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
 
 public class HybridRowIndex implements Comparable<HybridRowIndex> ,  Serializable{
@@ -27,6 +28,20 @@ public class HybridRowIndex implements Comparable<HybridRowIndex> ,  Serializabl
 	
 	public TreeSet<byte[]> getPKRefs(){
 		return pkRefs;
+	}
+	
+	protected byte [] [] getPKRefsAsArray(){
+		rwLock.readLock().lock();
+
+        try {
+            if(pkRefs != null){
+            	return pkRefs.toArray(new byte[pkRefs.size()][]);
+            } else {
+            	return null;
+            }
+        } finally {
+            rwLock.readLock().unlock();
+        }
 	}
 	
 	public byte[] getRowKey(){

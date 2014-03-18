@@ -7,6 +7,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -15,15 +16,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.Configuration;
+
 import org.apache.hadoop.hbase.Cell;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.KeyValue;
+
 import org.apache.hadoop.hbase.NotServingRegionException;
 import org.apache.hadoop.hbase.RegionTooBusyException;
-import org.apache.hadoop.hbase.client.HTable;
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.ResultScanner;
+
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
@@ -33,11 +31,12 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.google.common.collect.BoundType;
 import com.google.common.collect.SortedMultiset;
 import com.google.common.collect.TreeMultiset;
-import com.google.common.hash.Hashing;
 
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Range;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
+import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.commons.ByteArrayWrapper;
 
 public class HybridIndex extends AbstractPluggableIndex implements Serializable {
 
@@ -49,7 +48,7 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 	private transient static Log LOG;
 
 	private TreeMultiset<HybridRowIndex> sortedTree;
-	private HashMap<Integer, ArrayList<HybridRowIndex>> rowIndexMap;
+	private HashMap<ByteArrayWrapper, ArrayList<HybridRowIndex>> rowIndexMap;
 	private transient ReadWriteLock rwLock;
 	private byte[] columnFamily;
 	private byte[] qualifier;
@@ -64,7 +63,7 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 	public HybridIndex(byte[] cf, byte[] qualifier) {
 		LOG = LogFactory.getLog(HybridIndex.class);
 		sortedTree = TreeMultiset.create();
-		rowIndexMap = new HashMap<Integer, ArrayList<HybridRowIndex>>(15000);
+		rowIndexMap = new HashMap<ByteArrayWrapper, ArrayList<HybridRowIndex>>();
 		rwLock = new ReentrantReadWriteLock(true);
 		this.columnFamily = cf;
 		this.qualifier = qualifier;
@@ -78,7 +77,8 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 	}
 
 	private void internalAdd(byte[] key, byte[] value) {
-		int hashedValue = Hashing.murmur3_32().hashBytes(key).asInt();
+		// int hashedValue = Hashing.murmur3_32().hashBytes(key).asInt();
+		ByteArrayWrapper hashedValue = new ByteArrayWrapper(key);
 		ArrayList<HybridRowIndex> list = rowIndexMap.get(hashedValue);
 		if (list == null) {
 			list = new ArrayList<HybridRowIndex>();
@@ -185,7 +185,8 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 
 	@Override
 	public void removeValueFromIdx(byte[] key, byte[] value) {
-		int hashedValue = Hashing.murmur3_32().hashBytes(key).asInt();
+		// int hashedValue = Hashing.murmur3_32().hashBytes(key).asInt();
+		ByteArrayWrapper hashedValue = new ByteArrayWrapper(key);
 		ArrayList<HybridRowIndex> list = rowIndexMap.get(hashedValue);
 		if (list != null) {
 			for (HybridRowIndex singleRowIndex : list) {
@@ -212,12 +213,12 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 
 		Set<byte[]> rowKeys = new TreeSet<byte[]>(Bytes.BYTES_COMPARATOR);
 		Object key = criterion.getComparisonValue();
-		LOG.info("filterRowsFromCriteria..." + criterion.getComparisonType());
-		
+
 		switch (criterion.getComparisonType()) {
 		case EQUAL:
-			int hashedValue = Hashing.murmur3_32().hashBytes((byte[]) key)
-					.asInt();
+			// int hashedValue = Hashing.murmur3_32().hashBytes((byte[]) key)
+			// .asInt();
+			ByteArrayWrapper hashedValue = new ByteArrayWrapper((byte[]) key);
 			ArrayList<HybridRowIndex> list = rowIndexMap.get(hashedValue);
 			if (list != null) {
 				for (HybridRowIndex singleRowIndex : list) {
@@ -262,28 +263,49 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 		}
 	}
 
-	public String toString() {
-		for (int key : rowIndexMap.keySet()) {
-			System.out.println("HashMap key: " + key);
-			ArrayList<HybridRowIndex> list = rowIndexMap.get(key);
-			for (HybridRowIndex singleRowIndex : list) {
-				System.out.println("RowIndexKey: "
-						+ new String(singleRowIndex.getRowKey()));
-				System.out.print("RowIndexValues: ");
-				for (byte[] value : singleRowIndex.getPKRefs()) {
-					System.out.print(" " + new String(value) + ",");
+	// public String toString() {
+	// for (int key : rowIndexMap.keySet()) {
+	// System.out.println("HashMap key: " + key);
+	// ArrayList<HybridRowIndex> list = rowIndexMap.get(key);
+	// for (HybridRowIndex singleRowIndex : list) {
+	// System.out.println("RowIndexKey: "
+	// + new String(singleRowIndex.getRowKey()));
+	// System.out.print("RowIndexValues: ");
+	// for (byte[] value : singleRowIndex.getPKRefs()) {
+	// System.out.print(" " + new String(value) + ",");
+	// }
+	// System.out.println("");
+	// }
+	// System.out.println("");
+	//
+	// }
+	// return "";
+	// }
+
+	@Override
+	public void split(AbstractPluggableIndex daughterRegionA,
+			AbstractPluggableIndex daughterRegionB, byte[] splitRow) {
+
+		rwLock.writeLock().lock();
+
+		Iterator<HybridRowIndex> keyIterator = sortedTree.iterator();
+		while (keyIterator.hasNext()) {
+
+			HybridRowIndex key = keyIterator.next();
+			byte[][] sortedPKRefArray = key.getPKRefsAsArray();
+			int splitPoint = Arrays.binarySearch(sortedPKRefArray, splitRow,
+					ByteUtil.BYTES_COMPARATOR);
+			for (int i = 0; i < sortedPKRefArray.length; i++) {
+				if ((splitPoint >= 0 && i < splitPoint)
+						|| (splitPoint < 0 && i < Math.abs(splitPoint + 1))) {
+					daughterRegionA.add(key.getRowKey(), sortedPKRefArray[i]);
+				} else {
+					daughterRegionB.add(key.getRowKey(), sortedPKRefArray[i]);
 				}
-				System.out.println("");
 			}
-			System.out.println("");
-
 		}
-		return "";
-	}
 
-	public static void main(String[] args) {
-		System.out.println("Hello World");
-		TreeMultiset<HybridRowIndex> set = TreeMultiset.create();
+		rwLock.writeLock().unlock();
 
 	}
 

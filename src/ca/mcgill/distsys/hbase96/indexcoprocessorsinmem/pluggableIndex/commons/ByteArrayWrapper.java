@@ -1,33 +1,41 @@
 package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.commons;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
-public final class ByteArrayWrapper
-{
-    private final byte[] data;
+import com.google.common.hash.Hashing;
 
-    public ByteArrayWrapper(byte[] data)
-    {
-        if (data == null)
-        {
-            throw new NullPointerException();
-        }
-        this.data = data;
-    }
+public final class ByteArrayWrapper implements Serializable {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -5726937581098237015L;
+	private final byte[] data;
 
-    @Override
-    public boolean equals(Object other)
-    {
-        if (!(other instanceof ByteArrayWrapper))
-        {
-            return false;
-        }
-        return Arrays.equals(data, ((ByteArrayWrapper)other).data);
-    }
+	public ByteArrayWrapper(byte[] data) {
+		if (data == null) {
+			throw new NullPointerException();
+		}
+		this.data = data;
+	}
 
-    @Override
-    public int hashCode()
-    {
-        return Arrays.hashCode(data);
-    }
+	@Override
+	public boolean equals(Object other) {
+		if (!(other instanceof ByteArrayWrapper)) {
+			return false;
+		}
+		return Arrays.equals(data, ((ByteArrayWrapper) other).data);
+	}
+
+	@Override
+	public int hashCode() {
+		//return Arrays.hashCode(data);
+		// Using murmur hash instead of Arrays hash
+		// COULD COMPARE THE PERFORMANCE LATER
+		return Hashing.murmur3_32().hashBytes(data).asInt();
+	}
+	
+	public byte[] get() {
+		return data;
+	}
 }

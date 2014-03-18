@@ -84,5 +84,6 @@ public abstract class AbstractPluggableIndex implements Serializable {
 
 	public abstract Set<byte[]> filterRowsFromCriteria(Criterion<?> criterion);
 
+	public abstract void split(AbstractPluggableIndex daughterRegionA, AbstractPluggableIndex daughterRegionB, byte[] splitRow);
 
 }
