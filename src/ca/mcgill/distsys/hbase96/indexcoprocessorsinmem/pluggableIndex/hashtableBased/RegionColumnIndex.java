@@ -13,8 +13,6 @@ import java.util.TreeSet;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
@@ -35,16 +33,22 @@ import org.apache.hadoop.hbase.util.Bytes;
 // modified by Cong
 import org.apache.hadoop.hbase.Cell;
 
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Range;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
+import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.commons.ByteArrayWrapper;
 
 public class RegionColumnIndex extends AbstractPluggableIndex implements
 		Serializable {
 
 	// private transient static Log LOG;
 
-	private HashMap<String, RowIndex> rowIndexMap;
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -1641091015504586661L;
+	private HashMap<ByteArrayWrapper, RowIndex> rowIndexMap;
 	private transient ReadWriteLock rwLock;
 	private byte[] columnFamily;
 	private byte[] qualifier;
@@ -61,7 +65,7 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 	public RegionColumnIndex(int maxTreeSize, byte[] columnFamily,
 			byte[] qualifier) {
 		// LOG = LogFactory.getLog(RegionColumnIndex.class);
-		rowIndexMap = new HashMap<String, RowIndex>(15000);
+		rowIndexMap = new HashMap<ByteArrayWrapper, RowIndex>(15000);
 		rwLock = new ReentrantReadWriteLock(true);
 		this.columnFamily = columnFamily;
 		this.qualifier = qualifier;
@@ -89,8 +93,8 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 			ClassNotFoundException {
 		RowIndex rowIndex;
 		boolean newPKRefTree = false;
-		String keyString = new String(key);
-		rowIndex = rowIndexMap.get(keyString);
+		ByteArrayWrapper keyByteArray = new ByteArrayWrapper(key);
+		rowIndex = rowIndexMap.get(keyByteArray);
 		if (rowIndex == null) {
 			rowIndex = new RowIndex();
 			newPKRefTree = true;
@@ -99,15 +103,15 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 		rowIndex.add(value, maxTreeSize);
 
 		if (newPKRefTree) {
-			rowIndexMap.put(keyString, rowIndex);
+			rowIndexMap.put(keyByteArray, rowIndex);
 		}
 	}
 
 	public byte[][] get(byte[] key) {
-		return get(new String(key));
+		return get(new ByteArrayWrapper(key));
 	}
 
-	public byte[][] get(String key) {
+	public byte[][] get(ByteArrayWrapper key) {
 		rwLock.readLock().lock();
 
 		try {
@@ -215,7 +219,7 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 	public void removeValueFromIdx(byte[] key, byte[] value) {
 		rwLock.writeLock().lock();
 		try {
-			RowIndex rowIndex = rowIndexMap.get(new String(key));
+			RowIndex rowIndex = rowIndexMap.get(new ByteArrayWrapper(key));
 			if (rowIndex != null) {
 				rowIndex.remove(value, maxTreeSize);
 			}
@@ -244,8 +248,9 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 		// .getMatchingValueSetFromIndex(rowIndexMap.keySet())) {
 		// rowKeys.addAll(rowIndexMap.get(value).getPKRefs());
 		// }
-		String key = new String((byte[]) criterion.getComparisonValue());
-		
+		ByteArrayWrapper key = new ByteArrayWrapper(
+				(byte[]) criterion.getComparisonValue());
+
 		switch (criterion.getComparisonType()) {
 
 		case EQUAL:
@@ -313,10 +318,6 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 		}
 	}
 
-	Set<String> keySet() {
-		return rowIndexMap.keySet();
-	}
-
 	byte[] getColumnFamily() {
 		return columnFamily;
 	}
@@ -325,22 +326,46 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 		return qualifier;
 	}
 
-	public String toString() {
-		for (String key : keySet()) {
-			System.out.print("Key: " + key + "  Values: ");
-			try {
-				for (byte[] value : rowIndexMap.get(key).getPKRefs()) {
-					System.out.print(new String(value) + ", ");
+	// public String toString() {
+	// for (String key : keySet()) {
+	// System.out.print("Key: " + key + "  Values: ");
+	// try {
+	// for (byte[] value : rowIndexMap.get(key).getPKRefs()) {
+	// System.out.print(new String(value) + ", ");
+	// }
+	// System.out.println("");
+	// } catch (ClassNotFoundException e) {
+	// // TODO Auto-generated catch block
+	// e.printStackTrace();
+	// } catch (IOException e) {
+	// // TODO Auto-generated catch block
+	// e.printStackTrace();
+	// }
+	// }
+	// return "";
+	// }
+
+	@Override
+	public void split(AbstractPluggableIndex daughterRegionA,
+			AbstractPluggableIndex daughterRegionB, byte[] splitRow) {
+
+		rwLock.writeLock().lock();
+		for (ByteArrayWrapper value : rowIndexMap.keySet()) {
+
+			byte[][] sortedPKRefArray = this.get(value);
+			int splitPoint = Arrays.binarySearch(sortedPKRefArray, splitRow,
+					ByteUtil.BYTES_COMPARATOR);
+			for (int i = 0; i < sortedPKRefArray.length; i++) {
+				if ((splitPoint >= 0 && i < splitPoint)
+						|| (splitPoint < 0 && i < Math.abs(splitPoint + 1))) {
+					daughterRegionA.add(value.get(), sortedPKRefArray[i]);
+				} else {
+					daughterRegionB.add(value.get(), sortedPKRefArray[i]);
 				}
-				System.out.println("");
-			} catch (ClassNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			}
 		}
-		return "";
+
+		rwLock.writeLock().unlock();
+
 	}
 }
