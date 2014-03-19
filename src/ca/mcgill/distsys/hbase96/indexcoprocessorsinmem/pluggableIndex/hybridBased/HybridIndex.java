@@ -186,6 +186,7 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 
 	@Override
 	public void removeValueFromIdx(byte[] key, byte[] value) {
+		rwLock.writeLock().lock();
 		// int hashedValue = Hashing.murmur3_32().hashBytes(key).asInt();
 		ByteArrayWrapper hashedValue = new ByteArrayWrapper(key);
 		ArrayList<HybridRowIndex> list = rowIndexMap.get(hashedValue);
@@ -202,19 +203,22 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 					if (list.isEmpty()) {
 						rowIndexMap.remove(hashedValue);
 					}
+					rwLock.writeLock().unlock();
 					return;
 				}
 				
 			}
 			// No value key found in the list
 		}
-		// No corresponding list found in the hashmap
+		// No corresponding list found in the hashma
+		rwLock.writeLock().unlock();
 
 	}
 
 	@Override
 	public Set<byte[]> filterRowsFromCriteria(Criterion<?> criterion) {
-
+		rwLock.readLock().lock();
+		
 		Set<byte[]> rowKeys = new TreeSet<byte[]>(Bytes.BYTES_COMPARATOR);
 		Object key = criterion.getComparisonValue();
 
@@ -228,10 +232,12 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 				for (HybridRowIndex singleRowIndex : list) {
 					if (Arrays.equals((byte[]) key, singleRowIndex.getRowKey())) {
 						rowKeys.addAll(singleRowIndex.getPKRefs());
+						rwLock.readLock().unlock();
 						return rowKeys;
 					}
 				}
 			}
+			rwLock.readLock().unlock();
 			return null;
 		case GREATER:
 			HybridRowIndex greaterRowIndex = new HybridRowIndex((byte[]) key);
@@ -240,6 +246,7 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 			for (HybridRowIndex singleRowIndex : greaterSet) {
 				rowKeys.addAll(singleRowIndex.getPKRefs());
 			}
+			rwLock.readLock().unlock();
 			return rowKeys;
 		case LESS:
 			HybridRowIndex lessRowIndex = new HybridRowIndex((byte[]) key);
@@ -248,6 +255,7 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 			for (HybridRowIndex singleRowIndex : lessSet) {
 				rowKeys.addAll(singleRowIndex.getPKRefs());
 			}
+			rwLock.readLock().unlock();
 			return rowKeys;
 		case RANGE:
 			Range range = criterion.getRange();
@@ -261,8 +269,10 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 			for (HybridRowIndex singleRowIndex : rangeSet) {
 				rowKeys.addAll(singleRowIndex.getPKRefs());
 			}
+			rwLock.readLock().unlock();
 			return rowKeys;
 		default:
+			rwLock.readLock().unlock();
 			return null;
 		}
 	}
