@@ -86,6 +86,7 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 			rowIndex.add(value);
 			list.add(rowIndex);
 			rowIndexMap.put(hashedValue, list);
+			// Add rowindex to the tree as well
 			sortedTree.add(rowIndex);
 		} else {
 			for (HybridRowIndex singleRowIndex : list) {
@@ -201,10 +202,13 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 					if (list.isEmpty()) {
 						rowIndexMap.remove(hashedValue);
 					}
+					return;
 				}
-				return;
+				
 			}
+			// No value key found in the list
 		}
+		// No corresponding list found in the hashmap
 
 	}
 
