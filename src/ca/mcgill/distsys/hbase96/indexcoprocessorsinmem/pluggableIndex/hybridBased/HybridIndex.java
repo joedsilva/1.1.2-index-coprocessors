@@ -1,5 +1,24 @@
 package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridBased;
 
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Range;
+import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
+import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.commons.ByteArrayWrapper;
+import com.google.common.collect.BoundType;
+import com.google.common.collect.SortedMultiset;
+import com.google.common.collect.TreeMultiset;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.NotServingRegionException;
+import org.apache.hadoop.hbase.RegionTooBusyException;
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.regionserver.HRegion;
+import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
+import org.apache.hadoop.hbase.regionserver.RegionScanner;
+import org.apache.hadoop.hbase.util.Bytes;
+
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.ObjectInputStream;
@@ -13,30 +32,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
-import org.apache.hadoop.hbase.Cell;
-
-import org.apache.hadoop.hbase.NotServingRegionException;
-import org.apache.hadoop.hbase.RegionTooBusyException;
-
-import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.regionserver.HRegion;
-import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
-import org.apache.hadoop.hbase.regionserver.RegionScanner;
-import org.apache.hadoop.hbase.util.Bytes;
-
-import com.google.common.collect.BoundType;
-import com.google.common.collect.SortedMultiset;
-import com.google.common.collect.TreeMultiset;
-
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Range;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.commons.ByteArrayWrapper;
 
 public class HybridIndex extends AbstractPluggableIndex implements Serializable {
 
@@ -143,7 +138,7 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 								// values.get(0).getValue() +
 								// "] in column [" + new
 								// String(columnFamily) + ":"
-								// + new String(qualifier) + "]");
+								// + Bytes.toString(qualifier) + "]");
 							} else {
 								byte[] rowid = values.get(0).getRow();
 								try {
@@ -153,9 +148,9 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 									// LOG.error("NPE for VALUE [" + new
 									// String(values.get(0).getValue()) +
 									// "] ROW ["
-									// + new String(rowid) + "] in column ["
-									// + new String(columnFamily) + ":"
-									// + new String(qualifier) + "]", NPEe);
+									// + Bytes.toString(rowid) + "] in column ["
+									// + Bytes.toString(columnFamily) + ":"
+									// + Bytes.toString(qualifier) + "]", NPEe);
 									throw NPEe;
 								}
 							}
@@ -250,13 +245,31 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 			return rowKeys;
 		case LESS:
 			HybridRowIndex lessRowIndex = new HybridRowIndex((byte[]) key);
-			SortedMultiset<HybridRowIndex> lessSet = sortedTree.headMultiset(
-					lessRowIndex, BoundType.OPEN);
+			SortedMultiset<HybridRowIndex> lessSet = sortedTree
+          .headMultiset(lessRowIndex, BoundType.OPEN);
 			for (HybridRowIndex singleRowIndex : lessSet) {
 				rowKeys.addAll(singleRowIndex.getPKRefs());
 			}
 			rwLock.readLock().unlock();
 			return rowKeys;
+    case GREATER_OR_EQUAL:
+        HybridRowIndex greaterOrEqualRowIndex = new HybridRowIndex((byte[]) key);
+        SortedMultiset<HybridRowIndex> greaterOrEqualSet = sortedTree
+            .tailMultiset(greaterOrEqualRowIndex, BoundType.CLOSED);
+        for (HybridRowIndex singleRowIndex : greaterOrEqualSet) {
+          rowKeys.addAll(singleRowIndex.getPKRefs());
+        }
+        rwLock.readLock().unlock();
+        return rowKeys;
+      case LESS_OR_EQUAL:
+        HybridRowIndex lessOrEqualRowIndex = new HybridRowIndex((byte[]) key);
+        SortedMultiset<HybridRowIndex> lessOrEqualSet = sortedTree
+            .headMultiset(lessOrEqualRowIndex, BoundType.CLOSED);
+        for (HybridRowIndex singleRowIndex : lessOrEqualSet) {
+          rowKeys.addAll(singleRowIndex.getPKRefs());
+        }
+        rwLock.readLock().unlock();
+        return rowKeys;
 		case RANGE:
 			Range range = criterion.getRange();
 			HybridRowIndex lowerBound = new HybridRowIndex(
@@ -283,10 +296,10 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 	// ArrayList<HybridRowIndex> list = rowIndexMap.get(key);
 	// for (HybridRowIndex singleRowIndex : list) {
 	// System.out.println("RowIndexKey: "
-	// + new String(singleRowIndex.getRowKey()));
+	// + Bytes.toString(singleRowIndex.getRowKey()));
 	// System.out.print("RowIndexValues: ");
 	// for (byte[] value : singleRowIndex.getPKRefs()) {
-	// System.out.print(" " + new String(value) + ",");
+	// System.out.print(" " + Bytes.toString(value) + ",");
 	// }
 	// System.out.println("");
 	// }

@@ -1,5 +1,15 @@
 package ca.mcgill.distsys.hbase.indexcoprocessorsinmem;
 
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.regionserver.HRegion;
+import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
+import org.apache.hadoop.hbase.regionserver.RegionScanner;
+import org.apache.hadoop.hbase.util.Bytes;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
@@ -12,19 +22,7 @@ import java.util.TreeSet;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.regionserver.HRegion;
-import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
-import org.apache.hadoop.hbase.regionserver.RegionScanner;
-import org.apache.hadoop.hbase.util.Bytes;
-
 // modified by Cong
-import org.apache.hadoop.hbase.Cell;
-
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
 
 public class RegionColumnIndex implements Serializable {
     private static final long serialVersionUID = -3578521804781335557L;
@@ -64,7 +62,7 @@ public class RegionColumnIndex implements Serializable {
     void internalAdd(byte[] key, byte[] value) throws IOException, ClassNotFoundException {
         RowIndex rowIndex;
         boolean newPKRefTree = false;
-        String keyString = new String(key);
+        String keyString = Bytes.toString(key);
         rowIndex = rowIndexMap.get(keyString);
         if (rowIndex == null) {
             rowIndex = new RowIndex();
@@ -79,7 +77,7 @@ public class RegionColumnIndex implements Serializable {
     }
 
     public byte[][] get(byte[] key) throws IOException, ClassNotFoundException {
-        return get(new String(key));
+        return get(Bytes.toString(key));
     }
 
     public byte[][] get(String key) throws IOException, ClassNotFoundException {
@@ -129,16 +127,16 @@ public class RegionColumnIndex implements Serializable {
                         more = scanner.nextRaw(values);
                         if (!values.isEmpty() && values.get(0) != null && values.get(0).getValue() != null) {
                             if (values.get(0).getRow() == null) {
-                                LOG.error("NULL ROW for VALUE [" + values.get(0).getValue() + "] in column [" + new String(columnFamily) + ":"
-                                        + new String(qualifier) + "]");
+                                LOG.error("NULL ROW for VALUE [" + values.get(0).getValue() + "] in column [" + Bytes.toString(columnFamily) + ":"
+                                        + Bytes.toString(qualifier) + "]");
                             } else {
                                 byte[] rowid = values.get(0).getRow(); 
                                 try {                                  
                                     internalAdd(values.get(0).getValue(), Arrays.copyOf(rowid, rowid.length));
                                 } catch (NullPointerException NPEe) {
-                                    LOG.error("NPE for VALUE [" + new String(values.get(0).getValue()) + "] ROW ["
-                                            + new String(rowid) + "] in column [" + new String(columnFamily) + ":"
-                                            + new String(qualifier) + "]", NPEe);
+                                    LOG.error("NPE for VALUE [" + Bytes.toString(values.get(0).getValue()) + "] ROW ["
+                                            + Bytes.toString(rowid) + "] in column [" + Bytes.toString(columnFamily) + ":"
+                                            + Bytes.toString(qualifier) + "]", NPEe);
                                     throw NPEe;
                                 }
                             }
@@ -159,7 +157,7 @@ public class RegionColumnIndex implements Serializable {
     public void removeValueFromIdx(byte[] key, byte[] value) throws IOException, ClassNotFoundException {
         rwLock.writeLock().lock();
         try {
-            RowIndex rowIndex = rowIndexMap.get(new String(key));
+            RowIndex rowIndex = rowIndexMap.get(Bytes.toString(key));
             if (rowIndex != null) {
                 rowIndex.remove(value, maxTreeSize);
             }

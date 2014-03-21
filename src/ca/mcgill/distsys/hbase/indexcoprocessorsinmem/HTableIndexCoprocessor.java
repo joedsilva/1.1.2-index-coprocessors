@@ -1,15 +1,8 @@
 package ca.mcgill.distsys.hbase.indexcoprocessorsinmem;
 
-import java.io.ByteArrayInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
-
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.IndexedColumn;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.SecondaryIndexConstants;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.Util;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -36,13 +29,20 @@ import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.FSUtils;
 import org.xerial.snappy.SnappyInputStream;
 import org.xerial.snappy.SnappyOutputStream;
 
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.IndexedColumn;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.SecondaryIndexConstants;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.Util;
+import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 
 public class HTableIndexCoprocessor extends BaseRegionObserver {
     private static final Log LOG = LogFactory.getLog(HTableIndexCoprocessor.class);
@@ -69,10 +69,10 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
         // MASTER_INDEX_TABLE_NAME
         // Name of the master index table that contains which columns are indexed for which tables.
 //        if (Arrays.equals(tableName, HConstants.ROOT_TABLE_NAME) || Arrays.equals(tableName, HConstants.META_TABLE_NAME)
-//                || new String(tableName).equals(SecondaryIndexConstants.MASTER_INDEX_TABLE_NAME)) {
+//                || Bytes.toString(tableName).equals(SecondaryIndexConstants.MASTER_INDEX_TABLE_NAME)) {
         
         if (desc.isRootRegion() || Arrays.equals(tableName, HConstants.META_TABLE_NAME)
-                || new String(tableName).equals(SecondaryIndexConstants.MASTER_INDEX_TABLE_NAME)) {
+                || Bytes.toString(tableName).equals(SecondaryIndexConstants.MASTER_INDEX_TABLE_NAME)) {
             doNotRun = true;
         } else {
             configuration = HBaseConfiguration.create();
@@ -88,21 +88,21 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
             loadIndexFromFS();
             updateRegionIndexes();
         } catch (FileNotFoundException FNFe) {
-            LOG.info("INDEX: No file index for region [" + new String(regionName)
+            LOG.info("INDEX: No file index for region [" + regionName
                     + "] found; checking master table in case the file was deleted and rebuilding if required.");
             try {
                 rebuildRegionIndexes();
             } catch (ClassNotFoundException e) {
-                LOG.fatal("INDEX: Failed to create index for " + new String(regionName) + "]", e);
+                LOG.fatal("INDEX: Failed to create index for " + regionName + "]", e);
                 throw new RuntimeException(e);
             }
         } catch (Exception e) {
-            LOG.warn("INDEX: Failed to read index for region [" + new String(regionName)
+            LOG.warn("INDEX: Failed to read index for region [" + regionName
                     + "] from FS or update it. Rebuilding entire region's index. this may take a while.", e);
             try {
                 rebuildRegionIndexes();
             } catch (ClassNotFoundException e1) {
-                LOG.fatal("INDEX: Could not rebuild entire index for region [" + new String(regionName)
+                LOG.fatal("INDEX: Could not rebuild entire index for region [" + regionName
                         + "] from scanning the region. Indexing for this region will be unavailable until this problem is fixed.", e1);
                 throw new RuntimeException(e1);
             }
@@ -117,16 +117,16 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
     	Path regionIndexPath = new Path(tablePath, regionName + "__index");
         FileSystem fs = FileSystem.get(configuration);
 
-        LOG.info("INDEX: Opening index for region [" + new String(regionName) + "] from file.");
+        LOG.info("INDEX: Opening index for region [" + regionName + "] from file.");
         if (!fs.exists(regionIndexPath)) {
-            LOG.info("INDEX: No file index for region [" + new String(regionName)
+            LOG.info("INDEX: No file index for region [" + regionName
                     + "] found; checking if it has been left an index by its splitting parent.");
 
-            regionIndexPath = new Path(tablePath, "postSplit," + new String(region.getStartKey()) + ".__index");
+            regionIndexPath = new Path(tablePath, "postSplit," + Bytes.toString(region.getStartKey()) + ".__index");
             if (!fs.exists(regionIndexPath)) {
                 throw new FileNotFoundException(regionIndexPath.toString());
             }
-            LOG.info("INDEX: Opening postSplit index for region [" + new String(regionName) + "].");
+            LOG.info("INDEX: Opening postSplit index for region [" + regionName + "].");
         }
 
         FSDataInputStream in = fs.open(regionIndexPath);
@@ -153,11 +153,11 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
                     SecondaryIndexConstants.PRIMARYKEY_TREE_MAX_SIZE_DEFAULT);
             RegionIndex regionIndex = new RegionIndex(maxTreeSize);
             for (IndexedColumn column : regionIndexedColumns) {
-                LOG.info("INDEX: Building index for region [" + region.getRegionNameAsString() + "; column [" + new String(column.getColumnFamily())
-                        + ":" + new String(column.getQualifier()) + "].");
+                LOG.info("INDEX: Building index for region [" + region.getRegionNameAsString() + "; column [" + Bytes.toString(column.getColumnFamily())
+                        + ":" + Bytes.toString(column.getQualifier()) + "].");
                 regionIndex.add(column.getColumnFamily(), column.getQualifier(), region);
                 LOG.info("INDEX: Finished building index for region [" + region.getRegionNameAsString() + "; column ["
-                        + new String(column.getColumnFamily()) + ":" + new String(column.getQualifier()) + "].");
+                        + Bytes.toString(column.getColumnFamily()) + ":" + Bytes.toString(column.getQualifier()) + "].");
             }
             RegionIndexMap.getInstance().add(regionName, regionIndex);
         }
@@ -191,7 +191,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
                     try {
                         result.add((IndexedColumn) ois.readObject());
                     } catch (ClassNotFoundException e) {
-                        LOG.error("INDEX: Invalid entry in master index table for indexed table [" + new String(tableName) + "].", e);
+                        LOG.error("INDEX: Invalid entry in master index table for indexed table [" + Bytes.toString(tableName) + "].", e);
                     } finally {
                         ois.close();
                     }
@@ -217,8 +217,8 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
             for (String idxCol : regionindexedColumns) {
                 boolean found = false;
                 for (IndexedColumn meta_idxCol : meta_RegionIndexedColumns) {
-                    String idxColKey = new String(Util.concatByteArray(meta_idxCol.getColumnFamily(), meta_idxCol.getQualifier()));
-                    if (new String(idxColKey).equals(idxCol)) {
+                    String idxColKey = Bytes.toString(Util.concatByteArray(meta_idxCol.getColumnFamily(), meta_idxCol.getQualifier()));
+                    if (idxColKey.equals(idxCol)) {
                         found = true;
                         break;
                     }
@@ -238,7 +238,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
             }
 
             for (IndexedColumn idxCol : meta_RegionIndexedColumns) {
-                String idxColKey = new String(Util.concatByteArray(idxCol.getColumnFamily(), idxCol.getQualifier()));
+                String idxColKey = Bytes.toString(Util.concatByteArray(idxCol.getColumnFamily(), idxCol.getQualifier()));
                 if (!regionIndex.getIndexedColumns().contains(idxColKey)) {
                     regionIndex.add(idxCol.getColumnFamily(), idxCol.getQualifier(), region);
                 }
@@ -257,7 +257,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
                 LOG.info("INDEX: Region [" + regionName + "] postOpen; initializing indexes.");
                 loadRegionIndexes();
             } catch (IOException IOe) {
-                LOG.fatal("INDEX: Failed to load the region's index for table table [" + new String(tableName) + "]", IOe);
+                LOG.fatal("INDEX: Failed to load the region's index for table table [" + Bytes.toString(tableName) + "]", IOe);
                 // TODO close the region??
                 throw new RuntimeException(IOe);
             }
@@ -283,12 +283,12 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
                     // Nothing to do, new value is the same as the old value
                 }
             } catch (IOException IOe) {
-                LOG.error("INDEX: PUT: Failed to add to index for table [" + new String(tableName) + "], column [" + new String(kv.getFamily()) + ":"
-                        + new String(kv.getQualifier() + "]"), IOe);
+                LOG.error("INDEX: PUT: Failed to add to index for table [" + Bytes.toString(tableName) + "], column [" + Bytes.toString(kv.getFamily()) + ":"
+                        + Bytes.toString(kv.getQualifier()) + "]", IOe);
                 throw IOe;
             } catch (ClassNotFoundException CNFe) {
-                LOG.error("INDEX: PUT: Failed to add to index for table [" + new String(tableName) + "], column [" + new String(kv.getFamily()) + ":"
-                        + new String(kv.getQualifier() + "]"), CNFe);
+                LOG.error("INDEX: PUT: Failed to add to index for table [" + Bytes.toString(tableName) + "], column [" + Bytes.toString(kv.getFamily()) + ":"
+                        + Bytes.toString(kv.getQualifier()) + "]", CNFe);
                 throw new IOException(CNFe);
             }
         }
@@ -309,7 +309,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
     private void getValueToIndex(Put put, List<KeyValue> kVListToIndex, Set<String> indexedColumns) {
         for (byte[] family : put.getFamilyMap().keySet()) {
             for (KeyValue kv : (List<KeyValue>) put.getFamilyMap().get(family)) {
-                String colName = new String(Util.concatByteArray(family, kv.getQualifier()));
+                String colName = Bytes.toString(Util.concatByteArray(family, kv.getQualifier()));
                 if (indexedColumns.contains(colName)) {
                     kVListToIndex.add(kv);
                 }
@@ -387,8 +387,8 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
             try {
                 regionIndex.split(daughterRegionAIndex, daughterRegionBIndex, splitRow);
 
-                String daughterRegionAIndexFilename = "postSplit," + new String(region.getStartKey()) + ".__index";
-                String daughterRegionBIndexFilename = "postSplit," + new String(splitRow) + ".__index";
+                String daughterRegionAIndexFilename = "postSplit," + Bytes.toString(region.getStartKey()) + ".__index";
+                String daughterRegionBIndexFilename = "postSplit," + Bytes.toString(splitRow) + ".__index";
 
                 if (!daughterRegionAIndex.isEmpty()) {
                     persistDaughterRegionIndex(daughterRegionAIndex, daughterRegionAIndexFilename);
@@ -501,13 +501,13 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
                 }
             } catch (IOException IOe) {
                 LOG.error(
-                        "INDEX: DELETE: Failed to remove from index for table [" + new String(tableName) + "], column [" + new String(kv.getFamily())
-                                + ":" + new String(kv.getQualifier() + "]"), IOe);
+                        "INDEX: DELETE: Failed to remove from index for table [" + Bytes.toString(tableName) + "], column [" + Bytes.toString(kv.getFamily())
+                                + ":" + Bytes.toString(kv.getQualifier()) + "]", IOe);
                 throw IOe;
             } catch (ClassNotFoundException CNFe) {
                 LOG.error(
-                        "INDEX: DELETE: Failed to remove from index for table [" + new String(tableName) + "], column [" + new String(kv.getFamily())
-                                + ":" + new String(kv.getQualifier() + "]"), CNFe);
+                        "INDEX: DELETE: Failed to remove from index for table [" + Bytes.toString(tableName) + "], column [" + Bytes.toString(kv.getFamily())
+                                + ":" + Bytes.toString(kv.getQualifier()) + "]", CNFe);
                 throw new IOException(CNFe);
             }
         }
@@ -552,7 +552,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
     private List<KeyValue> getIndexedKV(List<KeyValue> columnsToDelete, Set<String> indexedColumns) {
         List<KeyValue> result = new ArrayList<KeyValue>();
         for (KeyValue kv : columnsToDelete) {
-            if (indexedColumns.contains(new String(Util.concatByteArray(kv.getFamily(), kv.getQualifier())))) {
+            if (indexedColumns.contains(Bytes.toString(Util.concatByteArray(kv.getFamily(), kv.getQualifier())))) {
                 result.add(kv);
             }
         }

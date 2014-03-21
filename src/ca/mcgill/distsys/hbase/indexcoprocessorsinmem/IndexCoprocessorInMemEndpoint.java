@@ -1,22 +1,5 @@
 package ca.mcgill.distsys.hbase.indexcoprocessorsinmem;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.Coprocessor;
-import org.apache.hadoop.hbase.CoprocessorEnvironment;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.coprocessor.CoprocessorService;
-import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-import org.apache.hadoop.hbase.protobuf.ResponseConverter;
-import org.apache.hadoop.hbase.regionserver.HRegion;
-
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.SecondaryIndexConstants;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.Util;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Column;
@@ -30,10 +13,26 @@ import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.protobuf.generated.Index
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.protobuf.generated.IndexCoprocessorInMem.IndexedQueryRequest;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.protobuf.generated.IndexCoprocessorInMem.IndexedQueryResponse;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.protobuf.generated.IndexCoprocessorInMem.ProtoResult;
-
 import com.google.protobuf.RpcCallback;
 import com.google.protobuf.RpcController;
 import com.google.protobuf.Service;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.Coprocessor;
+import org.apache.hadoop.hbase.CoprocessorEnvironment;
+import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.coprocessor.CoprocessorService;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import org.apache.hadoop.hbase.protobuf.ResponseConverter;
+import org.apache.hadoop.hbase.regionserver.HRegion;
+import org.apache.hadoop.hbase.util.Bytes;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService implements CoprocessorService, Coprocessor {
 
@@ -106,8 +105,8 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService 
         HTableDescriptor desc = region.getTableDesc();
 
         tableName = desc.getName();
-        if (new String(tableName).equals("-ROOT-") || new String(tableName).equalsIgnoreCase(".META.")
-                || new String(tableName).equals(SecondaryIndexConstants.MASTER_INDEX_TABLE_NAME)) {
+        if (Bytes.toString(tableName).equals("-ROOT-") || Bytes.toString(tableName).equalsIgnoreCase(".META.")
+                || Bytes.toString(tableName).equals(SecondaryIndexConstants.MASTER_INDEX_TABLE_NAME)) {
             doNotRun = true;
         } else {
             configuration = HBaseConfiguration.create();
@@ -167,7 +166,7 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService 
             Column column = criterion.getCompareColumn();
 
             
-            if (indexedColumns.contains(new String(column.getFamily()) + new String(column.getQualifier()))) {
+            if (indexedColumns.contains(Bytes.toString(column.getFamily()) + Bytes.toString(column.getQualifier()))) {
                 criteriaOnIndexColumns.add(criterion);
             } else {
                 criteriaOnNonIndexedColumns.add(criterion);

@@ -1,29 +1,26 @@
 package ca.mcgill.distsys.hbase.indexcoprocessorsinmem.pluggableIndex;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.Util;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Column;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.IndexedColumnQuery;
+import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.protobuf.generated.IndexCoprocessorInMem.ProtoResult;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.util.Bytes;
 
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.Util;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Column;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.IndexedColumnQuery;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.protobuf.generated.IndexCoprocessorInMem.ProtoResult;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class RegionIndex implements Serializable {
     private static final long serialVersionUID = 2883387553546148042L;
@@ -59,7 +56,7 @@ public class RegionIndex implements Serializable {
         rwLock.writeLock().lock();
 
         try {
-            String key = new String(Util.concatByteArray(columnFamily, qualifier));
+            String key = Bytes.toString(Util.concatByteArray(columnFamily, qualifier));
 
             if (colIndex.get(key) == null) {
                 // Modified by Cong
@@ -77,7 +74,7 @@ public class RegionIndex implements Serializable {
         rwLock.writeLock().lock();
 
         try {
-            colIndex.remove(new String(Util.concatByteArray(columnFamily, qualifier)));
+            colIndex.remove(Bytes.toString(Util.concatByteArray(columnFamily, qualifier)));
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -103,7 +100,7 @@ public class RegionIndex implements Serializable {
             throw new IOException("The Region and Region Index are being split; no updates possible at this moment.");
         }
         try {
-            return colIndex.get(new String(Util.concatByteArray(family, qualifier)));
+            return colIndex.get(Bytes.toString(Util.concatByteArray(family, qualifier)));
         } finally {
             rwLock.readLock().unlock();
         }
@@ -162,8 +159,8 @@ public class RegionIndex implements Serializable {
              * Filter from index
              */
             for (Criterion<?> criterion : criteriaOnIndexColumns) {
-                String criterionColumn = new String(criterion.getCompareColumn().getFamily())
-                        + new String(criterion.getCompareColumn().getQualifier());
+                String criterionColumn = Bytes.toString(criterion.getCompareColumn().getFamily())
+                        + Bytes.toString(criterion.getCompareColumn().getQualifier());
                 AbstractPluggableIndex rci = colIndex.get(criterionColumn);
 
                 Set<byte[]> partialRows = rci.filterRowsFromCriteria(criterion);
