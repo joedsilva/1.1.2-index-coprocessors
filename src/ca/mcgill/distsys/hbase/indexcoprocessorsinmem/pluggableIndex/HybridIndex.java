@@ -1,15 +1,11 @@
 package ca.mcgill.distsys.hbase.indexcoprocessorsinmem.pluggableIndex;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Range;
+import com.google.common.collect.BoundType;
+import com.google.common.collect.SortedMultiset;
+import com.google.common.collect.TreeMultiset;
+import com.google.common.hash.Hashing;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
@@ -20,13 +16,15 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.util.Bytes;
 
-import com.google.common.collect.BoundType;
-import com.google.common.collect.SortedMultiset;
-import com.google.common.collect.TreeMultiset;
-import com.google.common.hash.Hashing;
-
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Range;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class HybridIndex extends AbstractPluggableIndex {
 
@@ -165,25 +163,43 @@ public class HybridIndex extends AbstractPluggableIndex {
 			return null;
 		case GREATER:
 			HybridRowIndex greaterRowIndex = new HybridRowIndex((byte [])key);
-			SortedMultiset<HybridRowIndex> greaterSet = sortedTree.tailMultiset(greaterRowIndex, BoundType.OPEN);
-			for(HybridRowIndex singleRowIndex: greaterSet){
+			SortedMultiset<HybridRowIndex> greaterSet =
+          sortedTree.tailMultiset(greaterRowIndex, BoundType.OPEN);
+			for(HybridRowIndex singleRowIndex : greaterSet){
 				rowKeys.addAll(singleRowIndex.getPKRefs());
 			}
 			return rowKeys;
 		case LESS:
 			HybridRowIndex lessRowIndex = new HybridRowIndex((byte [])key);
-			SortedMultiset<HybridRowIndex> lessSet = sortedTree.headMultiset(lessRowIndex, BoundType.OPEN);
-			for(HybridRowIndex singleRowIndex: lessSet){
+			SortedMultiset<HybridRowIndex> lessSet =
+          sortedTree.headMultiset(lessRowIndex, BoundType.OPEN);
+			for(HybridRowIndex singleRowIndex : lessSet){
 				rowKeys.addAll(singleRowIndex.getPKRefs());
 			}
 			return rowKeys;
-		case RANGE:
-			
+    case GREATER_OR_EQUAL:
+      HybridRowIndex greaterOrEqualRowIndex = new HybridRowIndex((byte[]) key);
+      SortedMultiset<HybridRowIndex> greaterOrEqualSet =
+          sortedTree.tailMultiset(greaterOrEqualRowIndex, BoundType.CLOSED);
+      for (HybridRowIndex singleRowIndex : greaterOrEqualSet) {
+        rowKeys.addAll(singleRowIndex.getPKRefs());
+      }
+      return rowKeys;
+    case LESS_OR_EQUAL:
+      HybridRowIndex lessOrEqualRowIndex = new HybridRowIndex((byte[]) key);
+      SortedMultiset<HybridRowIndex> lessOrEqualSet =
+          sortedTree.headMultiset(lessOrEqualRowIndex, BoundType.CLOSED);
+      for (HybridRowIndex singleRowIndex : lessOrEqualSet) {
+        rowKeys.addAll(singleRowIndex.getPKRefs());
+      }
+      return rowKeys;
+    case RANGE:
 			Range range = criterion.getRange();
 			HybridRowIndex lowerBound = new HybridRowIndex(range.getLowerBound());
 			HybridRowIndex higherBound = new HybridRowIndex(range.getHigherBound());
-			SortedMultiset<HybridRowIndex> rangeSet = sortedTree.subMultiset(lowerBound, BoundType.CLOSED, higherBound, BoundType.CLOSED);
-			for(HybridRowIndex singleRowIndex: rangeSet){
+			SortedMultiset<HybridRowIndex> rangeSet = sortedTree.subMultiset(
+          lowerBound, BoundType.CLOSED, higherBound, BoundType.CLOSED);
+			for(HybridRowIndex singleRowIndex : rangeSet){
 				rowKeys.addAll(singleRowIndex.getPKRefs());
 			}
 			return rowKeys;
@@ -198,10 +214,10 @@ public class HybridIndex extends AbstractPluggableIndex {
 			ArrayList<HybridRowIndex> list = rowIndexMap.get(key);
 			for (HybridRowIndex singleRowIndex : list) {
 				System.out.println("RowIndexKey: "
-						+ new String(singleRowIndex.getRowKey()));
+						+ Bytes.toString(singleRowIndex.getRowKey()));
 				System.out.print("RowIndexValues: ");
 				for (byte[] value : singleRowIndex.getPKRefs()) {
-					System.out.print(" " + new String(value) + ",");
+					System.out.print(" " + Bytes.toString(value) + ",");
 				}
 				System.out.println("");
 			}

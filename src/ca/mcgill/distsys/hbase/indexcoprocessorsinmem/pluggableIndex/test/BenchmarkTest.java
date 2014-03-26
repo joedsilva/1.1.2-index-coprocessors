@@ -1,23 +1,9 @@
 package ca.mcgill.distsys.hbase.indexcoprocessorsinmem.pluggableIndex.test;
 
-import java.util.Queue;
-import java.util.Random;
-
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.util.Bytes;
-
-import common.FileReader;
-
-import ca.mcgill.distsys.hbase.indexcoprocessorsinmem.pluggableIndex.IndexOperations;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.SecondaryIndexConstants;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.ByteArrayCriterion;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Column;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.IndexedColumnQuery;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion.CompareType;
+//import common.FileReader;
 
 public class BenchmarkTest {
-
+/*
 	IndexOperations index;
 	Configuration config;
 	byte[] family, qualifier;
@@ -156,5 +142,5 @@ public class BenchmarkTest {
 		}
 
 	}
-
+*/
 }

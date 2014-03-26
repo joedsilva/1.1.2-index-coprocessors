@@ -1,21 +1,9 @@
 package ca.mcgill.distsys.hbase.indexcoprocessorsinmem.pluggableIndex;
 
-import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.io.ObjectInputStream;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Range;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.NotServingRegionException;
@@ -32,11 +20,18 @@ import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 
-// modified by Cong
-import org.apache.hadoop.hbase.Cell;
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Range;
+// modified by Cong
 
 public class RegionColumnIndex extends AbstractPluggableIndex {
 
@@ -88,7 +83,7 @@ public class RegionColumnIndex extends AbstractPluggableIndex {
 			ClassNotFoundException {
 		RowIndex rowIndex;
 		boolean newPKRefTree = false;
-		String keyString = new String(key);
+		String keyString = Bytes.toString(key);
 		rowIndex = rowIndexMap.get(keyString);
 		if (rowIndex == null) {
 			rowIndex = new RowIndex();
@@ -103,7 +98,7 @@ public class RegionColumnIndex extends AbstractPluggableIndex {
 	}
 
 	public byte[][] get(byte[] key) {
-		return get(new String(key));
+		return get(Bytes.toString(key));
 	}
 
 	public byte[][] get(String key) {
@@ -202,7 +197,7 @@ public class RegionColumnIndex extends AbstractPluggableIndex {
 									// values.get(0).getValue() +
 									// "] in column [" + new
 									// String(columnFamily) + ":"
-									// + new String(qualifier) + "]");
+									// + Bytes.toString(qualifier) + "]");
 								} else {
 									byte[] rowid = values.get(0).getRow();
 									try {
@@ -213,9 +208,9 @@ public class RegionColumnIndex extends AbstractPluggableIndex {
 										// LOG.error("NPE for VALUE [" + new
 										// String(values.get(0).getValue()) +
 										// "] ROW ["
-										// + new String(rowid) + "] in column ["
-										// + new String(columnFamily) + ":"
-										// + new String(qualifier) + "]", NPEe);
+										// + Bytes.toString(rowid) + "] in column ["
+										// + Bytes.toString(columnFamily) + ":"
+										// + Bytes.toString(qualifier) + "]", NPEe);
 										throw NPEe;
 									} catch (ClassNotFoundException e) {
 										// TODO Auto-generated catch block
@@ -251,7 +246,7 @@ public class RegionColumnIndex extends AbstractPluggableIndex {
 	public void removeValueFromIdx(byte[] key, byte[] value) {
 		rwLock.writeLock().lock();
 		try {
-			RowIndex rowIndex = rowIndexMap.get(new String(key));
+			RowIndex rowIndex = rowIndexMap.get(Bytes.toString(key));
 			if (rowIndex != null) {
 				rowIndex.remove(value, maxTreeSize);
 			}
@@ -280,7 +275,7 @@ public class RegionColumnIndex extends AbstractPluggableIndex {
 		// .getMatchingValueSetFromIndex(rowIndexMap.keySet())) {
 		// rowKeys.addAll(rowIndexMap.get(value).getPKRefs());
 		// }
-		String key = new String((byte[]) criterion.getComparisonValue());
+		String key = Bytes.toString((byte[]) criterion.getComparisonValue());
 
 		switch (criterion.getComparisonType()) {
 
@@ -366,7 +361,7 @@ public class RegionColumnIndex extends AbstractPluggableIndex {
 			System.out.print("Key: " + key + "  Values: ");
 			try {
 				for (byte[] value : rowIndexMap.get(key).getPKRefs()) {
-					System.out.print(new String(value) + ", ");
+					System.out.print(Bytes.toString(value) + ", ");
 				}
 				System.out.println("");
 			} catch (ClassNotFoundException e) {
