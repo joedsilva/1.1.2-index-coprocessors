@@ -59,31 +59,64 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService 
                     regionIndex = new RegionIndex(maxTreeSize);
                     rim.add(region.getRegionNameAsString(), regionIndex);
                 }
-
-                byte[] idxColKey = Util.concatByteArray(request.getFamily().toByteArray(), request.getQualifier().toByteArray());
-                if (!regionIndex.getIndexedColumns().contains(idxColKey)) {
-                	// modified by Cong
-                	// Get in-memory index type and arguments for constructor
-                	String indexType = request.getIndexType();
-                	List<ByteString> resultArguments = request.getArgumentsList();
-                	List<Object> objectArguments = new ArrayList<Object>();
-                	for(ByteString result: resultArguments){
-            			try {
-            				objectArguments.add(Util.deserialize(result.toByteArray()));
-            			} catch (ClassNotFoundException e) {
-            				// TODO Auto-generated catch block
-            				e.printStackTrace();
-            			} catch (IOException e) {
-            				// TODO Auto-generated catch block
-            				e.printStackTrace();
-            			}
-            		}
-                	regionIndex.add(request.getFamily().toByteArray(), request.getQualifier().toByteArray(), region, indexType, objectArguments.toArray());
+                // if it's single column request
+                if (request.getIsMultiColumns() == false) {
                 	
-//                    regionIndex.add(request.getFamily().toByteArray(), request.getQualifier().toByteArray(), region);
+                	String idxColKey = Bytes.toString(Util.concatByteArray(request.getFamily().toByteArray(), request.getQualifier().toByteArray()));
+                    if (!regionIndex.getIndexedColumns().contains(idxColKey)) {
+                    	// modified by Cong
+                    	// Get in-memory index type and arguments for constructor
+                    	String indexType = request.getIndexType();
+                    	List<ByteString> resultArguments = request.getArgumentsList();
+                    	List<Object> objectArguments = new ArrayList<Object>();
+                    	for(ByteString result: resultArguments){
+                			try {
+                				objectArguments.add(Util.deserialize(result.toByteArray()));
+                			} catch (ClassNotFoundException e) {
+                				// TODO Auto-generated catch block
+                				e.printStackTrace();
+                			} catch (IOException e) {
+                				// TODO Auto-generated catch block
+                				e.printStackTrace();
+                			}
+                		}
+                    	regionIndex.add(request.getFamily().toByteArray(), request.getQualifier().toByteArray(), region, indexType, objectArguments.toArray());
+                    	
+//                        regionIndex.add(request.getFamily().toByteArray(), request.getQualifier().toByteArray(), region);
+                    } else {
+                        LOG.info("INDEX: requested index already exists.");
+                    }
+                
+                // it it's multicolumn request
                 } else {
-                    LOG.info("INDEX: requested index already exists.");
+                	List<Column> colList = Util.buildComparableColList(request);
+                	String idxColKey = Bytes.toString(Util.concatColumns(colList));
+                	
+                	if (!regionIndex.getIndexedColumns().contains(idxColKey)) {
+                    	// modified by Cong
+                    	// Get in-memory index type and arguments for constructor
+                    	String indexType = request.getIndexType();
+                    	List<ByteString> resultArguments = request.getArgumentsList();
+                    	List<Object> objectArguments = new ArrayList<Object>();
+                    	for(ByteString result: resultArguments){
+                			try {
+                				objectArguments.add(Util.deserialize(result.toByteArray()));
+                			} catch (ClassNotFoundException e) {
+                				// TODO Auto-generated catch block
+                				e.printStackTrace();
+                			} catch (IOException e) {
+                				// TODO Auto-generated catch block
+                				e.printStackTrace();
+                			}
+                		}
+                    	regionIndex.add(colList, region, indexType, objectArguments.toArray());
+                    	
+//                        regionIndex.add(request.getFamily().toByteArray(), request.getQualifier().toByteArray(), region);
+                    } else {
+                        LOG.info("INDEX: requested index already exists.");
+                    }
                 }
+                
             } catch (Exception e) {
                 LOG.error("INDEX: Failed to create index.", e);
                 builder.setSuccess(false);

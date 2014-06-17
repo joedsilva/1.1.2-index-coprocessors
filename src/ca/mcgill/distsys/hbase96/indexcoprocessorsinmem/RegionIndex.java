@@ -54,6 +54,7 @@ public class RegionIndex implements Serializable {
 		}
 	}
 
+	// single column index add
 	public void add(byte[] columnFamily, byte[] qualifier, HRegion region,
 			String indexType, Object[] arguments) throws IOException,
 			ClassNotFoundException {
@@ -62,17 +63,38 @@ public class RegionIndex implements Serializable {
 		try {
 			String key = Bytes.toString(Util.concatByteArray(columnFamily,
 					qualifier));
-
-			if (colIndex.get(key) == null) {
-				// Modified by Cong
-				AbstractPluggableIndex newColIdx = AbstractPluggableIndex
-						.getInstance(indexType, arguments);
-				colIndex.put(key, newColIdx);
-				// Modified by Cong
-				if (region != null) {
-					newColIdx.fullBuild(region);
-				}
+			// No need to check colindex, because indexCoprocessorEndpoint already checked
+			// Modified by Cong
+			AbstractPluggableIndex newColIdx = AbstractPluggableIndex
+					.getInstance(indexType, arguments);
+			colIndex.put(key, newColIdx);
+			// Modified by Cong
+			if (region != null) {
+				newColIdx.fullBuild(region);
 			}
+
+		} finally {
+			rwLock.writeLock().unlock();
+		}
+	}
+
+	// multi-column index add
+	public void add(List<Column> colList, HRegion region, String indexType,
+			Object[] arguments) throws IOException, ClassNotFoundException {
+		rwLock.writeLock().lock();
+
+		try {
+			String key = Bytes.toString(Util.concatColumns(colList));
+
+			// Modified by Cong
+			AbstractPluggableIndex newColIdx = AbstractPluggableIndex
+					.getInstance(indexType, arguments);
+			colIndex.put(key, newColIdx);
+			// Modified by Cong
+			if (region != null) {
+				newColIdx.fullBuild(region);
+			}
+
 		} finally {
 			rwLock.writeLock().unlock();
 		}
@@ -136,9 +158,8 @@ public class RegionIndex implements Serializable {
 						.getInstance(indexType, arguments);
 				rci.split(rciDaughterRegionA, rciDaughterRegionB, splitRow);
 
-				
 				// To be Done: Need to check the size of the keyset?
-				
+
 				daughterRegionAIndex.colIndex.put(column, rciDaughterRegionA);
 
 				daughterRegionBIndex.colIndex.put(column, rciDaughterRegionB);
