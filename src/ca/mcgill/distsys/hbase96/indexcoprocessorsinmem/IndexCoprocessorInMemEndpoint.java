@@ -32,6 +32,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -68,10 +69,12 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService 
                     	// Get in-memory index type and arguments for constructor
                     	String indexType = request.getIndexType();
                     	List<ByteString> resultArguments = request.getArgumentsList();
-                    	List<Object> objectArguments = new ArrayList<Object>();
-                    	for(ByteString result: resultArguments){
+                    	Object [] objectArguments = new Object[resultArguments.size()];
+                    	List<ByteString> resultArgumentsClasses = request.getArgumentsClassesList();
+                    	Class<?>[]argumentsClasses = new Class<?>[resultArgumentsClasses.size()];
+                    	for(int i = 0; i < resultArguments.size(); i++){
                 			try {
-                				objectArguments.add(Util.deserialize(result.toByteArray()));
+                				objectArguments[i] = (Util.deserialize(resultArguments.get(i).toByteArray()));
                 			} catch (ClassNotFoundException e) {
                 				// TODO Auto-generated catch block
                 				e.printStackTrace();
@@ -80,14 +83,33 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService 
                 				e.printStackTrace();
                 			}
                 		}
-                    	regionIndex.add(request.getFamily().toByteArray(), request.getQualifier().toByteArray(), region, indexType, objectArguments.toArray());
+                    	
+                    	for(int i = 0; i < resultArgumentsClasses.size(); i++){
+                			try {
+                				argumentsClasses[i] = (Class<?>) Util.deserialize(resultArgumentsClasses.get(i).toByteArray());
+                			} catch (ClassNotFoundException e) {
+                				// TODO Auto-generated catch block
+                				e.printStackTrace();
+                			} catch (IOException e) {
+                				// TODO Auto-generated catch block
+                				e.printStackTrace();
+                			}
+                		}
+                    	
+                    	LOG.info("HELLO WORLD");
+                    	LOG.info(Bytes.toString(request.getFamily().toByteArray()) + ": " + Bytes.toString(request.getQualifier().toByteArray()));
+                    	for(int i = 0; i < argumentsClasses.length; i++) {
+                    		LOG.info(argumentsClasses[i].getCanonicalName());
+                    	}
+                    	
+                    	regionIndex.add(request.getFamily().toByteArray(), request.getQualifier().toByteArray(), region, indexType, objectArguments,(Class<?> []) argumentsClasses);
                     	
 //                        regionIndex.add(request.getFamily().toByteArray(), request.getQualifier().toByteArray(), region);
                     } else {
                         LOG.info("INDEX: requested index already exists.");
                     }
                 
-                // it it's multicolumn request
+                // if it's multicolumn request
                 } else {
                 	List<Column> colList = Util.buildComparableColList(request);
                 	String idxColKey = Bytes.toString(Util.concatColumns(colList));
@@ -97,10 +119,12 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService 
                     	// Get in-memory index type and arguments for constructor
                     	String indexType = request.getIndexType();
                     	List<ByteString> resultArguments = request.getArgumentsList();
-                    	List<Object> objectArguments = new ArrayList<Object>();
-                    	for(ByteString result: resultArguments){
+                    	Object [] objectArguments = new Object[resultArguments.size()];
+                    	List<ByteString> resultArgumentsClasses = request.getArgumentsClassesList();
+                    	Class<?>[]argumentsClasses = new Class<?>[resultArgumentsClasses.size()];
+                    	for(int i = 0; i < resultArguments.size(); i++){
                 			try {
-                				objectArguments.add(Util.deserialize(result.toByteArray()));
+                				objectArguments[i] = (Util.deserialize(resultArguments.get(i).toByteArray()));
                 			} catch (ClassNotFoundException e) {
                 				// TODO Auto-generated catch block
                 				e.printStackTrace();
@@ -109,7 +133,20 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService 
                 				e.printStackTrace();
                 			}
                 		}
-                    	regionIndex.add(colList, region, indexType, objectArguments.toArray());
+                    	
+                    	for(int i = 0; i < resultArgumentsClasses.size(); i++){
+                			try {
+                				argumentsClasses[i] = (Class<?>) Util.deserialize(resultArgumentsClasses.get(i).toByteArray());
+                			} catch (ClassNotFoundException e) {
+                				// TODO Auto-generated catch block
+                				e.printStackTrace();
+                			} catch (IOException e) {
+                				// TODO Auto-generated catch block
+                				e.printStackTrace();
+                			}
+                		}
+                    	
+                    	regionIndex.add(colList, region, indexType, objectArguments, (Class<?> []) argumentsClasses);
                     	
 //                        regionIndex.add(request.getFamily().toByteArray(), request.getQualifier().toByteArray(), region);
                     } else {
@@ -132,17 +169,37 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService 
         builder.setSuccess(true);
         if (!doNotRun) {
             // TODO check request inputs (family & qualifier)
-            try {
-                RegionIndexMap rim = RegionIndexMap.getInstance();
-                RegionIndex regionIndex = rim.get(region.getRegionNameAsString());
-                if (regionIndex != null) {
-                    regionIndex.remove(request.getFamily().toByteArray(), request.getQualifier().toByteArray());
+        	RegionIndexMap rim = RegionIndexMap.getInstance();
+            RegionIndex regionIndex = rim.get(region.getRegionNameAsString());
+        	
+        	// single column delete request
+        	if(request.getIsMultiColumns() == false) {
+        		try {
+                    if (regionIndex != null) {
+                        regionIndex.remove(request.getFamily().toByteArray(), request.getQualifier().toByteArray());
+                    }
+                } catch (Exception e) {
+                    builder.setSuccess(false);
+                    ResponseConverter.setControllerException(controller, new IOException(e));
                 }
-            } catch (Exception e) {
-                builder.setSuccess(false);
-                ResponseConverter.setControllerException(controller, new IOException(e));
-            }
-        }
+
+        	// is multiColumn request
+        	} else {
+        		List<Column> colList = Util.buildComparableColList(request);
+            	String idxColKey = Bytes.toString(Util.concatColumns(colList));
+        		
+            	
+            	try {
+                    if (regionIndex != null) {
+                       regionIndex.removeKey(idxColKey);
+                    }
+                } catch (Exception e) {
+                    builder.setSuccess(false);
+                    ResponseConverter.setControllerException(controller, new IOException(e));
+                }
+        		
+        	}
+                    }
         done.run(builder.build());
     }
 
@@ -176,25 +233,60 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService 
 
         if (!doNotRun && regionIndex != null) {
             IndexedColumnQuery query = Util.buildQuery(request);
+            
             if (!query.getCriteria().isEmpty()) {
-                List<Criterion<?>> criteriaOnNonIndexedColumns = new ArrayList<Criterion<?>>();
-                List<Criterion<?>> criteriaOnIndexColumns = new ArrayList<Criterion<?>>();
-                splitCriteriaByTarget(criteriaOnNonIndexedColumns, criteriaOnIndexColumns, query.getCriteria(), regionIndex);
-                if (!criteriaOnIndexColumns.isEmpty()) {
-                    try {
-                        List<ProtoResult> filteredRows = regionIndex.filterRowsFromCriteria(criteriaOnIndexColumns, criteriaOnNonIndexedColumns, query,
-                                region);
-                        builder.addAllResult(filteredRows);
-                        
-                    } catch (Exception e) {
-                        ResponseConverter.setControllerException(controller, new IOException(e));
+            	
+            	// single column query
+            	if(query.isMultiColumns() == false) {
+            		List<Criterion<?>> criteriaOnNonIndexedColumns = new ArrayList<Criterion<?>>();
+                    List<Criterion<?>> criteriaOnIndexColumns = new ArrayList<Criterion<?>>();
+                    splitCriteriaByTarget(criteriaOnNonIndexedColumns, criteriaOnIndexColumns, query.getCriteria(), regionIndex);
+                    if (!criteriaOnIndexColumns.isEmpty()) {
+                        try {
+                            List<ProtoResult> filteredRows = regionIndex.filterRowsFromCriteria(criteriaOnIndexColumns, criteriaOnNonIndexedColumns, query,
+                                    region);
+                            builder.addAllResult(filteredRows);
+                            
+                        } catch (Exception e) {
+                            ResponseConverter.setControllerException(controller, new IOException(e));
+                        }
+                    } else {
+                        // At least one criteria must apply to an indexed
+                        // column, exception otherwise
+                        ResponseConverter.setControllerException(controller, new IOException(
+                                "An indexed query must contains at least 1 criterion that applies to an indexed column."));
                     }
+                // MultiColumn query
                 } else {
-                    // At least one criteria must apply to an indexed
-                    // column, exception otherwise
-                    ResponseConverter.setControllerException(controller, new IOException(
-                            "An indexed query must contains at least 1 criterion that applies to an indexed column."));
+                	
+                	try {
+                		List<Column> colList = new ArrayList<Column> ();
+                		byte [] concatValues = null;
+                    	
+                    	for (Criterion<?> criterion : query.getCriteria()) {
+                    		colList.add(criterion.getCompareColumn());
+                    		concatValues = Util.concatByteArray(concatValues,(byte []) criterion.getComparisonValue());        
+                        }
+                    	
+                    	// Should remove this later
+                    	//Collections.sort(colList);
+                    	
+                    	String idxColKey = Bytes.toString(Util.concatColumns(colList));
+                    	if(!regionIndex.getIndexedColumns().contains(idxColKey)) {
+                    		ResponseConverter.setControllerException(controller, new IOException(
+                                    "MultiColumn Index for " + idxColKey + " doesn't exist"));
+                    	} else {
+                    		List<ProtoResult> filteredRows = regionIndex.multiColumnsFilterRowsFromCriteria(idxColKey, concatValues, colList, region);
+                    		builder.addAllResult(filteredRows);
+                    	}
+                	} catch (Exception e){
+                		ResponseConverter.setControllerException(controller, new IOException(e));
+                	}
+                	
+                	
+                	
                 }
+                
 
             } else {
                 // The query must contain at least 1 criterion, exception

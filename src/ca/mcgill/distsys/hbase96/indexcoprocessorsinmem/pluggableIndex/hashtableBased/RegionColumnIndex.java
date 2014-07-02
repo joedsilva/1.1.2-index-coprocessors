@@ -1,16 +1,21 @@
 package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hashtableBased;
 
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.Util;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Column;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Range;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.commons.ByteArrayWrapper;
+
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.NotServingRegionException;
 import org.apache.hadoop.hbase.RegionTooBusyException;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
@@ -49,10 +54,18 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 	private static final long serialVersionUID = -1641091015504586661L;
 	private HashMap<ByteArrayWrapper, RowIndex> rowIndexMap;
 	private transient ReadWriteLock rwLock;
+	private int maxTreeSize;
+	// This is for single Column indexing
 	private byte[] columnFamily;
 	private byte[] qualifier;
-	private int maxTreeSize;
+	
 	private String tableName;
+	// This is for multiColumn indexing
+	private List<Column> colList;
+	private boolean isMultiColumn = false;
+	
+	private String test = "";
+	
 
 	private void readObject(ObjectInputStream in) throws IOException,
 			ClassNotFoundException {
@@ -61,6 +74,7 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 		// LOG = LogFactory.getLog(RegionColumnIndex.class);
 	}
 
+	// single column indexing
 	public RegionColumnIndex(int maxTreeSize, byte[] columnFamily,
 			byte[] qualifier) {
 		// LOG = LogFactory.getLog(RegionColumnIndex.class);
@@ -69,6 +83,18 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 		this.columnFamily = columnFamily;
 		this.qualifier = qualifier;
 		this.maxTreeSize = maxTreeSize;
+		test = "I am single";
+		
+	}
+	
+	// multiColumn indexing
+	public RegionColumnIndex(int maxTreeSize, List<Column> colList) {
+		rowIndexMap = new HashMap<ByteArrayWrapper, RowIndex>(15000);
+		rwLock = new ReentrantReadWriteLock(true);
+		this.colList = colList;
+		this.maxTreeSize = maxTreeSize;
+		this.isMultiColumn = true;
+		test = "I am multi";
 	}
 
 	public void add(byte[] key, byte[] value) {
@@ -145,7 +171,14 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 
 		try {
 			Scan scan = new Scan();
-			scan.addColumn(columnFamily, qualifier);
+			if(isMultiColumn == true) {
+				for(Column col: colList) {
+					scan.addColumn(col.getFamily(), col.getQualifier());
+				}
+			} else {
+				scan.addColumn(columnFamily, qualifier);
+			}
+			
 			scan.setCacheBlocks(false); // don't want to fill the cache
 										// uselessly and create churn
 			RegionScanner scanner = region.getScanner(scan);
@@ -162,20 +195,20 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 
 					boolean more;
 					do {
-
+						
 						more = scanner.nextRaw(values);
-						if (!values.isEmpty() && values.get(0) != null
-								&& values.get(0).getValue() != null) {
-							if (values.get(0).getRow() == null) {
-								// LOG.error("NULL ROW for VALUE [" +
-								// values.get(0).getValue() +
-								// "] in column [" + new
-								// String(columnFamily) + ":"
-								// + Bytes.toString(qualifier) + "]");
-							} else {
-								byte[] rowid = values.get(0).getRow();
+						
+						if(isMultiColumn == true) {
+							
+							if(!values.isEmpty()) {
+								byte [] rowid = values.get(0).getRow();
+								byte [] concatKey = null;
+								for (Cell cell: values) {
+									// concat the values of colList
+									concatKey = Util.concatByteArray(concatKey, cell.getValue());
+								}
 								try {
-									internalAdd(values.get(0).getValue(),
+									internalAdd(concatKey,
 											Arrays.copyOf(rowid, rowid.length));
 								} catch (NullPointerException NPEe) {
 									// LOG.error("NPE for VALUE [" + new
@@ -189,8 +222,42 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 									// TODO Auto-generated catch block
 									e.printStackTrace();
 								}
+								
 							}
+							
+						} else {
+							
+							if (!values.isEmpty() && values.get(0) != null
+									&& values.get(0).getValue() != null) {
+								if (values.get(0).getRow() == null) {
+									// LOG.error("NULL ROW for VALUE [" +
+									// values.get(0).getValue() +
+									// "] in column [" + new
+									// String(columnFamily) + ":"
+									// + Bytes.toString(qualifier) + "]");
+								} else {
+									byte[] rowid = values.get(0).getRow();
+									try {
+										internalAdd(values.get(0).getValue(),
+												Arrays.copyOf(rowid, rowid.length));
+									} catch (NullPointerException NPEe) {
+										// LOG.error("NPE for VALUE [" + new
+										// String(values.get(0).getValue()) +
+										// "] ROW ["
+										// + Bytes.toString(rowid) + "] in column ["
+										// + Bytes.toString(columnFamily) + ":"
+										// + Bytes.toString(qualifier) + "]", NPEe);
+										throw NPEe;
+									} catch (ClassNotFoundException e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}
+								}
+							}
+							
 						}
+						
+						
 						values.clear();
 					} while (more);
 					scanner.close();
@@ -267,6 +334,8 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 					rwLock.readLock().unlock();
 				}
 			}
+			
+		// not supported multiColumn query
 		case RANGE:
 			Range range = criterion.getRange();
 
@@ -367,4 +436,40 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 		rwLock.writeLock().unlock();
 
 	}
+	
+	
+	
+	
+	// just for test purpose...
+	public void sayHello(){
+		System.out.println("Hello I am regionColumnIndex :)");
+		System.out.println("Index type: " + this.test);
+	}
+	
+	public static void main(String [] args) throws Throwable {
+		
+		String namespace = "ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex";
+		String indexType = namespace + ".hashtableBased.RegionColumnIndex";
+		
+		List<Column> colList = new ArrayList<Column> ();
+		Column column1 = new Column(Bytes.toBytes("cf1"));
+		column1.setQualifier(Bytes.toBytes("a"));
+		Column column2 = new Column(Bytes.toBytes("cf2"));
+		column2.setQualifier(Bytes.toBytes("c"));
+		colList.add(column1);
+		colList.add(column2);
+		
+		Object[] arguments = { 2,  colList};
+		//RegionColumnIndex test = (RegionColumnIndex) AbstractPluggableIndex.getInstance(true, indexType, arguments, new Class [] {int.class, List.class});
+		RegionColumnIndex test = (RegionColumnIndex) AbstractPluggableIndex.getInstance(false, indexType, new Object[] {1,  Bytes.toBytes("test"), Bytes.toBytes("2")}, new Class [] {int.class, byte[].class, byte[].class});
+		test.sayHello();
+		
+		List<Class<?>> classes = new ArrayList<Class<?>>();
+		classes.add(int.class);
+		classes.add(byte[].class);
+		Class<?> [] array = (Class<?> []) classes.toArray();
+	}
+	
+	
+
 }
