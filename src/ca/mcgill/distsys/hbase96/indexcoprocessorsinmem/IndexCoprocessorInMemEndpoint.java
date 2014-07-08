@@ -92,7 +92,7 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService
 						}
 					}
 
-					regionIndex.add(idxColKey, region, indexType, objectArguments);
+					regionIndex.add(colList, region, indexType, objectArguments);
 
 				} else {
 					LOG.info("INDEX: requested index already exists.");
@@ -124,11 +124,11 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService
 			RegionIndex regionIndex = rim.get(region.getRegionNameAsString());
 
 			List<Column> colList = Util.buildColumnList(request.getColumnList());
-			String idxColKey = Util.concatColumnsToString(colList);
+			//String idxColKey = Util.concatColumnsToString(colList);
 
 			try {
 				if (regionIndex != null) {
-					regionIndex.remove(idxColKey);
+					regionIndex.remove(colList);
 				}
 			} catch (Exception e) {
 				builder.setSuccess(false);
@@ -314,5 +314,4 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService
 	public Service getService() {
 		return this;
 	}
-
 }

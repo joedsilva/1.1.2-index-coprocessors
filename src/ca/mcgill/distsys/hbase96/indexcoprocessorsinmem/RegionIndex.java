@@ -1,5 +1,6 @@
 package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem;
 
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.IndexedColumn;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.Util;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.ByteArrayCriterion;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Column;
@@ -10,6 +11,7 @@ import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractP
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.protobuf.generated.IndexCoprocessorInMem.ProtoResult;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.commons.math.util.MultidimensionalCounter.Iterator;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.filter.FilterList;
@@ -20,7 +22,9 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -30,8 +34,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class RegionIndex implements Serializable {
 	private static final Log LOG = LogFactory.getLog(RegionIndex.class);
 	private static final long serialVersionUID = 2883387553546148042L;
-	// Modified by COng
+	// Modified by Cong
 	private HashMap<String, AbstractPluggableIndex> colIndex;
+	// Hashmap<"family:qualifier", Set<IndexedColumn>>
+	private HashMap<String, Set<IndexedColumn>> singleMappedIndex;
 
 	private transient ReadWriteLock rwLock;
 	private int maxTreeSize;
@@ -45,6 +51,7 @@ public class RegionIndex implements Serializable {
 
 	public RegionIndex(int maxTreeSize) {
 		colIndex = new HashMap<String, AbstractPluggableIndex>();
+		singleMappedIndex = new HashMap<String, Set<IndexedColumn>>();
 		rwLock = new ReentrantReadWriteLock(true);
 		this.maxTreeSize = maxTreeSize;
 	}
@@ -58,16 +65,91 @@ public class RegionIndex implements Serializable {
 		}
 	}
 
-	public void add(String key, HRegion region, String indexType,
-			Object[] arguments)
-			throws IOException, ClassNotFoundException, NoSuchMethodException {
+	public HashMap<String, Set<IndexedColumn>> getSingleMappedIndex() {
+		return singleMappedIndex;
+	}
+
+	/*
+	// put the single column index
+	public void singleMappedPut(String key, byte [] family, byte [] qualifier) {
+		IndexedColumn indexedColumn = new IndexedColumn(family, qualifier);
+		if(singleMappedIndex.get(key) == null) {
+			HashSet<IndexedColumn> innerMappedIndex = new HashSet<IndexedColumn>();
+			innerMappedIndex.add(indexedColumn);
+			singleMappedIndex.put(key, innerMappedIndex);
+		} else {
+			singleMappedIndex.get(key).add(indexedColumn);
+		}
+	}
+	*/
+
+	// put the multi Column index
+	public void singleMappedPut(List<Column> colList) {
+		IndexedColumn indexedColumn = new IndexedColumn(colList);
+		String singleColumn = null;
+		if(colList.size() != 0) {
+			for(Column col : colList) {
+				singleColumn = col.toString();
+				if(singleMappedIndex.get(singleColumn) == null){
+					HashSet<IndexedColumn> innerMappedIndex = new HashSet<IndexedColumn>();
+					innerMappedIndex.add(indexedColumn);
+					singleMappedIndex.put(singleColumn, innerMappedIndex);
+				} else {
+					singleMappedIndex.get(singleColumn).add(indexedColumn);
+				}
+			}
+		}
+	}
+	
+	public void removeFromSingleMappedIndex(List<Column> colList) {
+		IndexedColumn removeCol = new IndexedColumn(colList);
+		String singleColumn = null;
+		Set<IndexedColumn> set = null;
+		for(Column col: colList) {
+			singleColumn = col.toString();
+			set = singleMappedIndex.get(singleColumn);
+			if(set != null) {
+				set.remove(removeCol);
+				if(set.size() == 0) {
+					singleMappedIndex.remove(singleColumn);
+				}
+			}
+		}
+	}
+
+	/*
+	public void removeFromSingleMappedIndex(String key, byte [] family, byte [] qualifier) {
+		IndexedColumn removeCol = new IndexedColumn(family, qualifier);
+		Set<IndexedColumn> set = singleMappedIndex.get(key);
+		if(set != null) {
+			System.out.println("size: " + set.size());
+			set.remove(removeCol);
+			
+			if(set.size() == 0) {
+				singleMappedIndex.remove(key);
+			}
+		}
+		
+	}
+
+	// single column index add
+	public void add(byte[] columnFamily, byte[] qualifier, HRegion region,
+			String indexType, Object[] arguments, Class<?> [] argumentsClasses) throws IOException,
+			ClassNotFoundException, NoSuchMethodException {
 		rwLock.writeLock().lock();
 
 		try {
+			String key = Bytes.toString(Util.concatByteArray(columnFamily,
+					qualifier));
+			// No need to check colindex, because indexCoprocessorEndpoint already checked
 			// Modified by Cong
 			AbstractPluggableIndex newColIdx = AbstractPluggableIndex
-					.getInstance(indexType, arguments);
+					.getInstance(false, indexType, arguments, argumentsClasses);
 			colIndex.put(key, newColIdx);
+			
+			// added at July 7th
+			singleMappedPut(key, columnFamily, qualifier);
+			
 			// Modified by Cong
 			if (region != null) {
 				newColIdx.fullBuild(region);
@@ -77,12 +159,64 @@ public class RegionIndex implements Serializable {
 			rwLock.writeLock().unlock();
 		}
 	}
+	*/
 
-	public void remove(String key) {
+	public void add (List<Column> colList, HRegion region, String indexType,
+			Object[]arguments)
+			throws IOException, ClassNotFoundException, NoSuchMethodException {
 		rwLock.writeLock().lock();
-
 		try {
-			colIndex.remove(key);
+			// Modified by Cong
+			AbstractPluggableIndex newColIdx = AbstractPluggableIndex
+					.getInstance(indexType, arguments);
+			String idxColKey = Util.concatColumnsToString(colList);
+			colIndex.put(idxColKey, newColIdx);
+			// added by July 7th
+			singleMappedPut(colList);
+			// Modified by Cong
+			if (region != null) {
+				newColIdx.fullBuild(region);
+			}
+		} finally {
+			rwLock.writeLock().unlock();
+		}
+	}
+
+	/*
+	public void remove(byte[] columnFamily, byte[] qualifier) {
+		rwLock.writeLock().lock();
+		try {
+			String idxColKey = Bytes.toString(Util.concatByteArray(columnFamily,
+					qualifier));
+			colIndex.remove(idxColKey);
+			
+			removeFromSingleMappedIndex(idxColKey, columnFamily, qualifier);
+			
+		} finally {
+			rwLock.writeLock().unlock();
+		}
+	}
+	*/
+
+	public void remove(List<Column> colList) {
+		rwLock.writeLock().lock();
+		try {
+			String idxColKey = Util.concatColumnsToString(colList);
+			colIndex.remove(idxColKey);
+			removeFromSingleMappedIndex(colList);
+		} finally {
+			rwLock.writeLock().unlock();
+		}
+	}
+
+	// TODO: find a way to remove singleMappedIndex as well
+	// Used by HTableIndexCoprocessor.updateRegionIndexes()
+	public void remove(String colList) {
+		rwLock.writeLock().lock();
+		try {
+			//String idxColKey = Util.concatColumnsToString(colList);
+			colIndex.remove(colList);
+			//removeFromSingleMappedIndex(colList);
 		} finally {
 			rwLock.writeLock().unlock();
 		}
@@ -106,6 +240,22 @@ public class RegionIndex implements Serializable {
 		}
 
 	}
+
+	/*
+	public AbstractPluggableIndex getValue(byte [] key) throws IOException{
+
+		rwLock.readLock().lock();
+		if (splitting) {
+		throw new IOException (
+				"The Region and Region Index are being split; no updates possible at this moment.");
+		}
+		try {
+			return colIndex.get(Bytes.toString(key));
+		} finally {
+			rwLock.readLock().unlock();
+		}
+	}
+	*/
 
 	// Not implemented
 	public void split(RegionIndex daughterRegionAIndex,
@@ -293,5 +443,94 @@ public class RegionIndex implements Serializable {
 			rwLock.readLock().unlock();
 		}
 
+	}
+	
+	
+	 // just for test purpose
+	public static void printSingleMappedIndex(HashMap<String, Set<IndexedColumn>> index) {
+		for(String key: index.keySet()){
+			System.out.println("Key: " + key);
+			Set<IndexedColumn> cls = index.get(key);
+			java.util.Iterator<IndexedColumn> iter = cls.iterator();
+			while(iter.hasNext()) {
+				IndexedColumn indexedCol = iter.next();
+				//if(indexedCol.getMultiColumn()) {
+				//	System.out.println(Bytes.toString(Util.concatColumns(indexedCol.getColumnList())));
+				//} else {
+				//	System.out.println(Bytes.toString(Util.concatByteArray(indexedCol.getColumnFamily(), indexedCol.getQualifier())));
+				//}
+				System.out.println(indexedCol.toString());
+			}
+			
+		}
+	}
+	
+	public static void main(String [] args) {
+		RegionIndex regionIndex = new RegionIndex(100);
+		// singleMappedPut
+		// removeFromSingleMappedIndex
+		System.out.println("Test for  (singleMappedPut | removeFromSingleMappedIndex) ");
+		
+		System.out.println("Initializing......");
+
+		// Multi-column
+		List<Column> list1 = new ArrayList<Column>();
+		list1.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("a")));
+		list1.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("b")));
+		List<Column> list2 = new ArrayList<Column>();
+		list2.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("b")));
+		list2.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("c")));
+		List<Column> list3 = new ArrayList<Column>();
+		list3.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("c")));
+		list3.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("d")));
+		List<Column> list4 = new ArrayList<Column>();
+		list4.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("a")));
+		list4.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("d")));
+
+		// Single-column
+		regionIndex.singleMappedPut(Arrays.asList(new Column("cf", "a")));
+		regionIndex.singleMappedPut(Arrays.asList(new Column("cf", "b")));
+		regionIndex.singleMappedPut(Arrays.asList(new Column("cf", "c")));
+		regionIndex.singleMappedPut(Arrays.asList(new Column("cf", "d")));
+
+		regionIndex.singleMappedPut(list1);
+		regionIndex.singleMappedPut(list2);
+		regionIndex.singleMappedPut(list3);
+		regionIndex.singleMappedPut(list4);
+		
+		printSingleMappedIndex(regionIndex.getSingleMappedIndex());
+
+		List<Column> removelist1 = new ArrayList<Column>();
+		removelist1.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("a")));
+		removelist1.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("b")));
+		List<Column> removelist2 = new ArrayList<Column>();
+		removelist2.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("b")));
+		removelist2.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("c")));
+		List<Column> removelist3 = new ArrayList<Column>();
+		removelist3.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("c")));
+		removelist3.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("d")));
+		List<Column> removelist4 = new ArrayList<Column>();
+		removelist4.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("a")));
+		removelist4.add(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("d")));
+		
+		System.out.println("Removing cf:a....");
+		regionIndex.removeFromSingleMappedIndex(Arrays.asList(new Column("cf", "a")));
+		printSingleMappedIndex(regionIndex.getSingleMappedIndex());
+		
+		System.out.println("Removing cf:a,cf:b....");
+		regionIndex.removeFromSingleMappedIndex(removelist1);
+		printSingleMappedIndex(regionIndex.getSingleMappedIndex());
+		
+		System.out.println("Removing cf:b,cf:c....");
+		regionIndex.removeFromSingleMappedIndex(removelist2);
+		printSingleMappedIndex(regionIndex.getSingleMappedIndex());
+		
+		System.out.println("Removing cf:a,cf:d....");
+		regionIndex.removeFromSingleMappedIndex(removelist4);
+		printSingleMappedIndex(regionIndex.getSingleMappedIndex());
+		
+		System.out.println("Removing cf:c,cf:d....");
+		regionIndex.removeFromSingleMappedIndex(removelist3);
+		printSingleMappedIndex(regionIndex.getSingleMappedIndex());
 	}
 }
