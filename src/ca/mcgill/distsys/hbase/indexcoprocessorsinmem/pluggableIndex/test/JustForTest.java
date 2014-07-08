@@ -51,11 +51,11 @@ public class JustForTest {
 //        }
         
         ByteArrayCriterion criterion = new ByteArrayCriterion(Bytes.toBytes("ab"));
-        criterion.setCompareColumn(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("A")));
+        criterion.setCompareColumn(new Column(Bytes.toBytes("cf"), Bytes.toBytes("A")));
         criterion.setComparisonType(CompareType.GREATER);
         query.addCriterion(criterion);
         ByteArrayCriterion criterion1 = new ByteArrayCriterion(Bytes.toBytes("ac"));
-        criterion1.setCompareColumn(new Column(Bytes.toBytes("cf")).setQualifier(Bytes.toBytes("A")));
+        criterion1.setCompareColumn(new Column(Bytes.toBytes("cf"), Bytes.toBytes("A")));
         criterion1.setComparisonType(CompareType.LESS);
         query.addCriterion(criterion1);
         Set<byte[]> results = test.index.execIndexedQuery(query);

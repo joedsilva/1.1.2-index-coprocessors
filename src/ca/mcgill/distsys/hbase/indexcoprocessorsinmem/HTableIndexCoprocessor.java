@@ -3,6 +3,7 @@ package ca.mcgill.distsys.hbase.indexcoprocessorsinmem;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.IndexedColumn;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.SecondaryIndexConstants;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.Util;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Column;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -152,12 +153,16 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
             int maxTreeSize = configuration.getInt(SecondaryIndexConstants.PRIMARYKEY_TREE_MAX_SIZE,
                     SecondaryIndexConstants.PRIMARYKEY_TREE_MAX_SIZE_DEFAULT);
             RegionIndex regionIndex = new RegionIndex(maxTreeSize);
-            for (IndexedColumn column : regionIndexedColumns) {
-                LOG.info("INDEX: Building index for region [" + region.getRegionNameAsString() + "; column [" + Bytes.toString(column.getColumnFamily())
-                        + ":" + Bytes.toString(column.getQualifier()) + "].");
-                regionIndex.add(column.getColumnFamily(), column.getQualifier(), region);
-                LOG.info("INDEX: Finished building index for region [" + region.getRegionNameAsString() + "; column ["
-                        + Bytes.toString(column.getColumnFamily()) + ":" + Bytes.toString(column.getQualifier()) + "].");
+            for (IndexedColumn idxCol : regionIndexedColumns) {
+                LOG.info("INDEX: Building index for " +
+                    "region [" + region.getRegionNameAsString() + "; " +
+                    "column [" + idxCol.toString() + "].");
+                Column column = idxCol.getColumnList().get(0);
+                regionIndex.add(column.getFamily(), column.getQualifier(), region);
+                LOG.info("INDEX: Finished building index for " +
+                    "region [" + region.getRegionNameAsString() + "; " +
+                    "column [" + idxCol.toString() + "].");
+
             }
             RegionIndexMap.getInstance().add(regionName, regionIndex);
         }
@@ -217,7 +222,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
             for (String idxCol : regionindexedColumns) {
                 boolean found = false;
                 for (IndexedColumn meta_idxCol : meta_RegionIndexedColumns) {
-                    String idxColKey = Bytes.toString(Util.concatByteArray(meta_idxCol.getColumnFamily(), meta_idxCol.getQualifier()));
+                    String idxColKey = meta_idxCol.toString();
                     if (idxColKey.equals(idxCol)) {
                         found = true;
                         break;
@@ -238,9 +243,10 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
             }
 
             for (IndexedColumn idxCol : meta_RegionIndexedColumns) {
-                String idxColKey = Bytes.toString(Util.concatByteArray(idxCol.getColumnFamily(), idxCol.getQualifier()));
+                String idxColKey = idxCol.toString();
                 if (!regionIndex.getIndexedColumns().contains(idxColKey)) {
-                    regionIndex.add(idxCol.getColumnFamily(), idxCol.getQualifier(), region);
+                    Column column = idxCol.getColumnList().get(0);
+                    regionIndex.add(column.getFamily(), column.getQualifier(), region);
                 }
             }
         }

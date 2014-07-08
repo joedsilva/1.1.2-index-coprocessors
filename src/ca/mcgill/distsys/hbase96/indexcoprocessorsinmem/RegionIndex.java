@@ -8,6 +8,8 @@ import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.IndexedColumnQuery;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion.CompareType;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.protobuf.generated.IndexCoprocessorInMem.ProtoResult;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.filter.FilterList;
@@ -26,6 +28,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class RegionIndex implements Serializable {
+	private static final Log LOG = LogFactory.getLog(RegionIndex.class);
 	private static final long serialVersionUID = 2883387553546148042L;
 	// Modified by COng
 	private HashMap<String, AbstractPluggableIndex> colIndex;
@@ -35,7 +38,7 @@ public class RegionIndex implements Serializable {
 	private boolean splitting = false;
 
 	private void readObject(ObjectInputStream in) throws IOException,
-			ClassNotFoundException {
+	ClassNotFoundException {
 		in.defaultReadObject();
 		rwLock = new ReentrantReadWriteLock(true);
 	}
@@ -48,7 +51,6 @@ public class RegionIndex implements Serializable {
 
 	public boolean isEmpty() {
 		rwLock.readLock().lock();
-
 		try {
 			return colIndex.isEmpty();
 		} finally {
@@ -56,19 +58,15 @@ public class RegionIndex implements Serializable {
 		}
 	}
 
-	// single column index add
-	public void add(byte[] columnFamily, byte[] qualifier, HRegion region,
-			String indexType, Object[] arguments, Class<?> [] argumentsClasses) throws IOException,
-			ClassNotFoundException, NoSuchMethodException {
+	public void add(String key, HRegion region, String indexType,
+			Object[] arguments)
+			throws IOException, ClassNotFoundException, NoSuchMethodException {
 		rwLock.writeLock().lock();
 
 		try {
-			String key = Bytes.toString(Util.concatByteArray(columnFamily,
-					qualifier));
-			// No need to check colindex, because indexCoprocessorEndpoint already checked
 			// Modified by Cong
 			AbstractPluggableIndex newColIdx = AbstractPluggableIndex
-					.getInstance(false, indexType, arguments, argumentsClasses);
+					.getInstance(indexType, arguments);
 			colIndex.put(key, newColIdx);
 			// Modified by Cong
 			if (region != null) {
@@ -80,40 +78,7 @@ public class RegionIndex implements Serializable {
 		}
 	}
 
-	// multi-column index add
-	public void add(List<Column> colList, HRegion region, String indexType,
-			Object[] arguments, Class<?> [] argumentsClasses) throws IOException, ClassNotFoundException, NoSuchMethodException {
-		rwLock.writeLock().lock();
-
-		try {
-			String key = Bytes.toString(Util.concatColumns(colList));
-
-			// Modified by Cong
-			AbstractPluggableIndex newColIdx = AbstractPluggableIndex
-					.getInstance(true, indexType, arguments, argumentsClasses);
-			colIndex.put(key, newColIdx);
-			// Modified by Cong
-			if (region != null) {
-				newColIdx.fullBuild(region);
-			}
-
-		} finally {
-			rwLock.writeLock().unlock();
-		}
-	}
-
-	public void remove(byte[] columnFamily, byte[] qualifier) {
-		rwLock.writeLock().lock();
-
-		try {
-			colIndex.remove(Bytes.toString(Util.concatByteArray(columnFamily,
-					qualifier)));
-		} finally {
-			rwLock.writeLock().unlock();
-		}
-	}
-
-	public void removeKey(String key) {
+	public void remove(String key) {
 		rwLock.writeLock().lock();
 
 		try {
@@ -127,16 +92,15 @@ public class RegionIndex implements Serializable {
 		return colIndex.keySet();
 	}
 
-	public AbstractPluggableIndex get(byte[] family, byte[] qualifier)
-			throws IOException {
+	public AbstractPluggableIndex get(String key)
+	throws IOException {
 		rwLock.readLock().lock();
 		if (splitting) {
-			throw new IOException(
-					"The Region and Region Index are being split; no updates possible at this moment.");
+			throw new IOException("The Region and Region Index are being split; "
+					+ "no updates possible at this moment.");
 		}
 		try {
-			return colIndex.get(Bytes.toString(Util.concatByteArray(family,
-					qualifier)));
+			return colIndex.get(key);
 		} finally {
 			rwLock.readLock().unlock();
 		}
@@ -154,12 +118,13 @@ public class RegionIndex implements Serializable {
 				AbstractPluggableIndex rci = colIndex.get(column);
 				String indexType = rci.getIndexType();
 				Object[] arguments = rci.getArguments();
-				Class<?>[] argumentsClasses = rci.getArgumentsClasses();
-				boolean isMultiColumn = rci.getIsMultiColumn();
-				AbstractPluggableIndex rciDaughterRegionA = AbstractPluggableIndex
-						.getInstance(isMultiColumn, indexType, arguments, argumentsClasses);
-				AbstractPluggableIndex rciDaughterRegionB = AbstractPluggableIndex
-						.getInstance(isMultiColumn, indexType, arguments, argumentsClasses);
+				//boolean isMultiColumn = rci.getIsMultiColumn();
+				AbstractPluggableIndex rciDaughterRegionA =
+						AbstractPluggableIndex
+								.getInstance(indexType, arguments);
+				AbstractPluggableIndex rciDaughterRegionB =
+						AbstractPluggableIndex
+								.getInstance(indexType, arguments);
 				rci.split(rciDaughterRegionA, rciDaughterRegionB, splitRow);
 
 				// To be Done: Need to check the size of the keyset?
@@ -190,15 +155,13 @@ public class RegionIndex implements Serializable {
 			 * Filter from index
 			 */
 			for (Criterion<?> criterion : criteriaOnIndexColumns) {
-				String criterionColumn = Bytes.toString(criterion
-						.getCompareColumn().getFamily())
-						+ Bytes.toString(criterion.getCompareColumn()
-								.getQualifier());
+				Column column = criterion.getCompareColumn();
 
-				AbstractPluggableIndex rci = colIndex.get(criterionColumn);
+				AbstractPluggableIndex rci = colIndex.get(column.toString());
 
 				Set<byte[]> partialRows = rci.filterRowsFromCriteria(criterion);
-				if (!partialRows.isEmpty()) {
+
+				if (partialRows != null && !partialRows.isEmpty()) {
 					if (firstRows || !mustPassAll) {
 						result.addAll(partialRows);
 					} else {
@@ -254,7 +217,7 @@ public class RegionIndex implements Serializable {
 
 	private List<ProtoResult> prefilteredLocalMultiGet(Set<byte[]> rows,
 			FilterList filterList, List<Column> columnList, HRegion region)
-			throws IOException {
+	throws IOException {
 
 		List<ProtoResult> resultList = new ArrayList<ProtoResult>(rows.size());
 
@@ -276,31 +239,59 @@ public class RegionIndex implements Serializable {
 
 	public void setSplitting(boolean b) {
 		splitting = true;
-
 	}
 
-	
-	// filter rows from MultiColumn index query
-	public List<ProtoResult> multiColumnsFilterRowsFromCriteria(
-			String idxColKey, byte[] concatValues, List<Column> colList, HRegion region) throws IOException {
-		
+
+	// Filter rows from index query
+	public List<ProtoResult> filterRowsFromCriteria(String idxColKey,
+			List<Criterion<?>> selectCriteria, List<Column> projectColumns,
+			HRegion region)
+	throws IOException {
+
 		try {
 			rwLock.readLock().lock();
-			
-			// create new criteria 
-			// should modify this later
-			ByteArrayCriterion criterion = new ByteArrayCriterion(concatValues);
-			//criterion.setCompareColumn(new Column(family).setQualifier(qualifier));
-			criterion.setComparisonType(CompareType.EQUAL);
+
+			Criterion<?> selectCriterion = selectCriteria.get(0);
+
+			if (selectCriteria.size() > 1) {
+				// Use multi-column index
+				byte[] concatValues = null;
+				for (Criterion<?> criterion : selectCriteria) {
+					concatValues = Util.concatByteArray(concatValues,
+							(byte[]) criterion.getComparisonValue());
+				}
+				// Create concatenated criterion
+				selectCriterion = new ByteArrayCriterion(concatValues);
+			}
+
 			AbstractPluggableIndex rci = colIndex.get(idxColKey);
-			Set <byte []> rowKeys = rci.filterRowsFromCriteria(criterion);
-			List<ProtoResult> resultList = new ArrayList<ProtoResult>(rowKeys.size());
-			resultList = prefilteredLocalMultiGet(rowKeys, null, colList, region);
-			
+
+			Set<byte[]> rowKeys = rci.filterRowsFromCriteria(selectCriterion);
+
+			List<ProtoResult> resultList;
+			if (rowKeys != null && !rowKeys.isEmpty()) {
+				FilterList filterList = null;
+				if (selectCriteria.size() > 1) {
+					// Multi-column case:
+					// Apply a MUST_PASS_ALL filter for the given criteria to
+					// ensure that results that have the given concatenated
+					// value for the given criteria are actually the same as
+					// the value being queried.
+					filterList = buildFilterListFromCriteria(selectCriteria,
+							true);
+				}
+				resultList = prefilteredLocalMultiGet(rowKeys, filterList,
+						projectColumns, region);
+			} else {
+				// no matching rows found
+				resultList = new ArrayList<>(0);
+			}
+
 			return resultList;
+
 		} finally {
 			rwLock.readLock().unlock();
 		}
-		
+
 	}
 }
