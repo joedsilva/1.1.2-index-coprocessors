@@ -186,12 +186,12 @@ public class IndexCoprocessorInMemEndpoint extends IndexCoprocessorInMemService 
         	// is multiColumn request
         	} else {
         		List<Column> colList = Util.buildComparableColList(request);
-            	String idxColKey = Bytes.toString(Util.concatColumns(colList));
+            	//String idxColKey = Bytes.toString(Util.concatColumns(colList));
         		
             	
             	try {
                     if (regionIndex != null) {
-                       regionIndex.removeKey(idxColKey);
+                       regionIndex.remove(colList);
                     }
                 } catch (Exception e) {
                     builder.setSuccess(false);

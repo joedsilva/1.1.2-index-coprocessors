@@ -370,6 +370,51 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 		}
 	}
 
+//	private void updateTableIndexes(List<KeyValue> kVListToIndex,
+//			Result currentRow, RegionIndex regionIndex) throws IOException {
+//
+//		for (KeyValue kv : kVListToIndex) {
+//			try {
+//				KeyValue currentValue = currentRow.getColumnLatest(
+//						kv.getFamily(), kv.getQualifier());
+//
+//				if (currentValue != null
+//						&& !Arrays.equals(currentValue.getValue(),
+//								kv.getValue())) {
+//					// There is a current value for the column but it is
+//					// different from the one to be added
+//					// => update current value's index to remove the reference
+//					
+//					// (1) This is will do the update operation
+//					// -1: remove the current value 
+//					removeCurrentValueRef(kv.getRow(), currentValue,
+//							regionIndex);
+//					// -2: add the new value
+//					addNewValueRef(kv, regionIndex);
+//				} else if (currentValue == null) {
+//					// (2) This will do the put operation
+//					addNewValueRef(kv, regionIndex);
+//				} else {
+//					// Nothing to do, new value is the same as the old value
+//				}
+//			} catch (IOException IOe) {
+//				LOG.error(
+//						"INDEX: PUT: Failed to add to index for " + "table ["
+//								+ tableName.toString() + "], " + "column ["
+//								+ Bytes.toString(kv.getFamily()) + ":"
+//								+ Bytes.toString(kv.getQualifier()) + "]", IOe);
+//				throw IOe;
+//			} catch (ClassNotFoundException CNFe) {
+//				LOG.error(
+//						"INDEX: PUT: Failed to add to index for " + "table ["
+//								+ tableName.toString() + "], " + "column ["
+//								+ Bytes.toString(kv.getFamily()) + ":"
+//								+ Bytes.toString(kv.getQualifier()) + "]", CNFe);
+//				throw new IOException(CNFe);
+//			}
+//		}
+//	}
+	
 	private void updateTableIndexes(List<KeyValue> kVListToIndex,
 			Result currentRow, RegionIndex regionIndex) throws IOException {
 
@@ -384,11 +429,15 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 					// There is a current value for the column but it is
 					// different from the one to be added
 					// => update current value's index to remove the reference
+					
+					// (1) This is will do the update operation
+					// -1: remove the current value 
 					removeCurrentValueRef(kv.getRow(), currentValue,
 							regionIndex);
+					// -2: add the new value
 					addNewValueRef(kv, regionIndex);
 				} else if (currentValue == null) {
-					// There is no current value, just add to the index
+					// (2) This will do the put operation
 					addNewValueRef(kv, regionIndex);
 				} else {
 					// Nothing to do, new value is the same as the old value
@@ -431,6 +480,20 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 		rci.removeValueFromIdx(currentValue.getValue(), row);
 	}
 
+//	@SuppressWarnings("unchecked")
+//	private void getValueToIndex(Put put, List<KeyValue> kVListToIndex,
+//			Set<String> indexedColumns) {
+//		for (byte[] family : put.getFamilyMap().keySet()) {
+//			for (KeyValue kv : (List<KeyValue>) put.getFamilyMap().get(family)) {
+//				String colName = Bytes.toString(Util.concatByteArray(family,
+//						kv.getQualifier()));
+//				if (indexedColumns.contains(colName)) {
+//					kVListToIndex.add(kv);
+//				}
+//			}
+//		}
+//	}
+	
 	@SuppressWarnings("unchecked")
 	private void getValueToIndex(Put put, List<KeyValue> kVListToIndex,
 			Set<String> indexedColumns) {
@@ -444,6 +507,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 			}
 		}
 	}
+
 
 	@Override
 	public void stop(CoprocessorEnvironment e) throws IOException {
@@ -586,6 +650,42 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 	}
 
 	@Override
+//	public void prePut(ObserverContext<RegionCoprocessorEnvironment> env,
+//			Put put, WALEdit edit, Durability durability) throws IOException {
+//		if (!doNotRun) {
+//			RegionIndex regionIndex = RegionIndexMap.getInstance().get(
+//					regionName);
+//
+//			if (regionIndex != null) {
+//				Set<String> indexedColumns = regionIndex.getIndexedColumns();
+//
+//				if (!indexedColumns.isEmpty()) {
+//					List<KeyValue> kVListToIndex = new ArrayList<KeyValue>();
+//					getValueToIndex(put, kVListToIndex, indexedColumns);
+//					
+//
+//					if (!kVListToIndex.isEmpty()) {
+//						Get get = new Get(put.getRow());
+//						Result result = null;
+//
+//						try {
+//							result = env.getEnvironment().getRegion().get(get);
+//						} catch (IOException IOe) {
+//							LOG.error(
+//									"INDEX: PUT: Failed to retrieve the current row. "
+//											+ "This is required for index update. The index may be in an "
+//											+ "invalid state if the put succeeds and affects an already "
+//											+ "indexed column value.", IOe);
+//							throw IOe;
+//						}
+//						updateTableIndexes(kVListToIndex, result, regionIndex);
+//					}
+//				}
+//			}
+//		}
+//	}
+	
+	
 	public void prePut(ObserverContext<RegionCoprocessorEnvironment> env,
 			Put put, WALEdit edit, Durability durability) throws IOException {
 		if (!doNotRun) {
@@ -594,10 +694,11 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 
 			if (regionIndex != null) {
 				Set<String> indexedColumns = regionIndex.getIndexedColumns();
-
+				
 				if (!indexedColumns.isEmpty()) {
 					List<KeyValue> kVListToIndex = new ArrayList<KeyValue>();
 					getValueToIndex(put, kVListToIndex, indexedColumns);
+					
 
 					if (!kVListToIndex.isEmpty()) {
 						Get get = new Get(put.getRow());
