@@ -33,14 +33,16 @@ import java.util.TreeSet;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class HybridIndex extends AbstractPluggableIndex implements Serializable {
+public class HybridIndex extends AbstractPluggableIndex
+		implements Serializable {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 2201469150576800226L;
 
-	private transient static Log LOG;
+	private transient static Log LOG = LogFactory.getLog(HybridIndex.class);
+	;
 
 	private TreeMultiset<HybridRowIndex> sortedTree;
 	private HashMap<ByteArrayWrapper, ArrayList<HybridRowIndex>> rowIndexMap;
@@ -49,14 +51,14 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 	private byte[] qualifier;
 
 	private void readObject(ObjectInputStream in) throws IOException,
-			ClassNotFoundException {
+	ClassNotFoundException {
 		in.defaultReadObject();
 		rwLock = new ReentrantReadWriteLock(true);
-		LOG = LogFactory.getLog(HybridIndex.class);
 	}
 
-	public HybridIndex(byte[] cf, byte[] qualifier) {
-		LOG = LogFactory.getLog(HybridIndex.class);
+	public HybridIndex(Object[] arguments) {
+		byte[] cf = (byte[]) arguments[0];
+		byte[] qualifier = (byte[]) arguments[1];
 		sortedTree = TreeMultiset.create();
 		rowIndexMap = new HashMap<ByteArrayWrapper, ArrayList<HybridRowIndex>>();
 		rwLock = new ReentrantReadWriteLock(true);
@@ -180,7 +182,7 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 	}
 
 	@Override
-	public void removeValueFromIdx(byte[] key, byte[] value) {
+	public void remove(byte[] key, byte[] value) {
 		rwLock.writeLock().lock();
 		// int hashedValue = Hashing.murmur3_32().hashBytes(key).asInt();
 		ByteArrayWrapper hashedValue = new ByteArrayWrapper(key);
@@ -201,7 +203,6 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 					rwLock.writeLock().unlock();
 					return;
 				}
-				
 			}
 			// No value key found in the list
 		}
@@ -213,19 +214,19 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 	@Override
 	public Set<byte[]> filterRowsFromCriteria(Criterion<?> criterion) {
 		rwLock.readLock().lock();
-		
+
 		Set<byte[]> rowKeys = new TreeSet<byte[]>(Bytes.BYTES_COMPARATOR);
-		Object key = criterion.getComparisonValue();
+		Object value = criterion.getComparisonValue();
 
 		switch (criterion.getComparisonType()) {
 		case EQUAL:
 			// int hashedValue = Hashing.murmur3_32().hashBytes((byte[]) key)
 			// .asInt();
-			ByteArrayWrapper hashedValue = new ByteArrayWrapper((byte[]) key);
+			ByteArrayWrapper hashedValue = new ByteArrayWrapper((byte[]) value);
 			ArrayList<HybridRowIndex> list = rowIndexMap.get(hashedValue);
 			if (list != null) {
 				for (HybridRowIndex singleRowIndex : list) {
-					if (Arrays.equals((byte[]) key, singleRowIndex.getRowKey())) {
+					if (Arrays.equals((byte[]) value, singleRowIndex.getRowKey())) {
 						rowKeys.addAll(singleRowIndex.getPKRefs());
 						rwLock.readLock().unlock();
 						return rowKeys;
@@ -235,7 +236,7 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 			rwLock.readLock().unlock();
 			return null;
 		case GREATER:
-			HybridRowIndex greaterRowIndex = new HybridRowIndex((byte[]) key);
+			HybridRowIndex greaterRowIndex = new HybridRowIndex((byte[]) value);
 			SortedMultiset<HybridRowIndex> greaterSet = sortedTree
 					.tailMultiset(greaterRowIndex, BoundType.OPEN);
 			for (HybridRowIndex singleRowIndex : greaterSet) {
@@ -244,41 +245,40 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 			rwLock.readLock().unlock();
 			return rowKeys;
 		case LESS:
-			HybridRowIndex lessRowIndex = new HybridRowIndex((byte[]) key);
+			HybridRowIndex lessRowIndex = new HybridRowIndex((byte[]) value);
 			SortedMultiset<HybridRowIndex> lessSet = sortedTree
-          .headMultiset(lessRowIndex, BoundType.OPEN);
+					.headMultiset(lessRowIndex, BoundType.OPEN);
 			for (HybridRowIndex singleRowIndex : lessSet) {
 				rowKeys.addAll(singleRowIndex.getPKRefs());
 			}
 			rwLock.readLock().unlock();
 			return rowKeys;
-    case GREATER_OR_EQUAL:
-        HybridRowIndex greaterOrEqualRowIndex = new HybridRowIndex((byte[]) key);
-        SortedMultiset<HybridRowIndex> greaterOrEqualSet = sortedTree
-            .tailMultiset(greaterOrEqualRowIndex, BoundType.CLOSED);
-        for (HybridRowIndex singleRowIndex : greaterOrEqualSet) {
-          rowKeys.addAll(singleRowIndex.getPKRefs());
-        }
-        rwLock.readLock().unlock();
-        return rowKeys;
-      case LESS_OR_EQUAL:
-        HybridRowIndex lessOrEqualRowIndex = new HybridRowIndex((byte[]) key);
-        SortedMultiset<HybridRowIndex> lessOrEqualSet = sortedTree
-            .headMultiset(lessOrEqualRowIndex, BoundType.CLOSED);
-        for (HybridRowIndex singleRowIndex : lessOrEqualSet) {
-          rowKeys.addAll(singleRowIndex.getPKRefs());
-        }
-        rwLock.readLock().unlock();
-        return rowKeys;
+		case GREATER_OR_EQUAL:
+			HybridRowIndex greaterOrEqualRowIndex =
+					new HybridRowIndex((byte[]) value);
+			SortedMultiset<HybridRowIndex> greaterOrEqualSet = sortedTree
+					.tailMultiset(greaterOrEqualRowIndex, BoundType.CLOSED);
+			for (HybridRowIndex singleRowIndex : greaterOrEqualSet) {
+				rowKeys.addAll(singleRowIndex.getPKRefs());
+			}
+			rwLock.readLock().unlock();
+			return rowKeys;
+		case LESS_OR_EQUAL:
+			HybridRowIndex lessOrEqualRowIndex =
+					new HybridRowIndex((byte[]) value);
+			SortedMultiset<HybridRowIndex> lessOrEqualSet = sortedTree
+					.headMultiset(lessOrEqualRowIndex, BoundType.CLOSED);
+			for (HybridRowIndex singleRowIndex : lessOrEqualSet) {
+				rowKeys.addAll(singleRowIndex.getPKRefs());
+			}
+			rwLock.readLock().unlock();
+			return rowKeys;
 		case RANGE:
 			Range range = criterion.getRange();
-			HybridRowIndex lowerBound = new HybridRowIndex(
-					range.getLowerBound());
-			HybridRowIndex higherBound = new HybridRowIndex(
-					range.getHigherBound());
-			SortedMultiset<HybridRowIndex> rangeSet = sortedTree
-					.subMultiset(lowerBound, BoundType.CLOSED, higherBound,
-							BoundType.CLOSED);
+			HybridRowIndex lowerBound = new HybridRowIndex(range.getLowerBound());
+			HybridRowIndex higherBound = new HybridRowIndex(range.getHigherBound());
+			SortedMultiset<HybridRowIndex> rangeSet = sortedTree.subMultiset(
+					lowerBound, BoundType.CLOSED, higherBound, BoundType.CLOSED);
 			for (HybridRowIndex singleRowIndex : rangeSet) {
 				rowKeys.addAll(singleRowIndex.getPKRefs());
 			}
@@ -333,7 +333,5 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 		}
 
 		rwLock.writeLock().unlock();
-
 	}
-
 }
