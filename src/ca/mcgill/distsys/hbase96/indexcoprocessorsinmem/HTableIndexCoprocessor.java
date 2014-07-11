@@ -2,6 +2,7 @@ package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem;
 
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.IndexedColumn;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.SecondaryIndexConstants;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.Util;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Column;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
 import org.apache.commons.logging.Log;
@@ -43,6 +44,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -330,50 +333,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 		}
 	}
 
-//	private void updateTableIndexes(List<KeyValue> kVListToIndex,
-//			Result currentRow, RegionIndex regionIndex) throws IOException {
-//
-//		for (KeyValue kv : kVListToIndex) {
-//			try {
-//				KeyValue currentValue = currentRow.getColumnLatest(
-//						kv.getFamily(), kv.getQualifier());
-//
-//				if (currentValue != null
-//						&& !Arrays.equals(currentValue.getValue(),
-//								kv.getValue())) {
-//					// There is a current value for the column but it is
-//					// different from the one to be added
-//					// => update current value's index to remove the reference
-//					
-//					// (1) This is will do the update operation
-//					// -1: remove the current value 
-//					removeCurrentValueRef(kv.getRow(), currentValue,
-//							regionIndex);
-//					// -2: add the new value
-//					addNewValueRef(kv, regionIndex);
-//				} else if (currentValue == null) {
-//					// (2) This will do the put operation
-//					addNewValueRef(kv, regionIndex);
-//				} else {
-//					// Nothing to do, new value is the same as the old value
-//				}
-//			} catch (IOException IOe) {
-//				LOG.error(
-//						"INDEX: PUT: Failed to add to index for " + "table ["
-//								+ tableName.toString() + "], " + "column ["
-//								+ Bytes.toString(kv.getFamily()) + ":"
-//								+ Bytes.toString(kv.getQualifier()) + "]", IOe);
-//				throw IOe;
-//			} catch (ClassNotFoundException CNFe) {
-//				LOG.error(
-//						"INDEX: PUT: Failed to add to index for " + "table ["
-//								+ tableName.toString() + "], " + "column ["
-//								+ Bytes.toString(kv.getFamily()) + ":"
-//								+ Bytes.toString(kv.getQualifier()) + "]", CNFe);
-//				throw new IOException(CNFe);
-//			}
-//		}
-//	}
+
 	
 	private void updateTableIndexes(List<KeyValue> kVListToIndex,
 			Result currentRow, RegionIndex regionIndex) throws IOException {
@@ -419,6 +379,93 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 			}
 		}
 	}
+	
+	// changed
+	private void updateTableIndexes(List<KeyValue> kVListToIndex, HashMap<String, Set<IndexedColumn>> singleMappedIndex,
+			Result currentRow, RegionIndex regionIndex) throws IOException {
+
+		Set<IndexedColumn> changedIndexColumnSet;
+		byte [] concatValue;
+		for (KeyValue kv : kVListToIndex) {
+			try {
+				KeyValue currentValue = currentRow.getColumnLatest(
+						kv.getFamily(), kv.getQualifier());
+
+				if (currentValue != null && !Arrays.equals(
+						currentValue.getValue(), kv.getValue())) {
+					// There is a current value for the column but it is
+					// different from the one to be added
+					// => update current value's index to remove the reference
+
+					// (1) This is will do the update operation
+					
+					
+					changedIndexColumnSet = singleMappedIndex.get(new Column(kv.getFamily()).setQualifier(kv.getQualifier()).toString());
+					for(IndexedColumn changedIndexColumn: changedIndexColumnSet) {
+						concatValue = null;
+						for(Column column: changedIndexColumn.getColumnList()) {
+							if(Bytes.equals(Util.concatByteArray(column.getFamily(), column.getQualifier()), Util.concatByteArray(kv.getFamily(), kv.getQualifier())) == true) {
+								concatValue = Util.concatByteArray(concatValue, kv.getValue());
+							} else {
+								concatValue = Util.concatByteArray(concatValue, currentRow.getValue(column.getFamily(), column.getQualifier()));
+							}
+							
+							LOG.error(column.toString() + ": " + Bytes.toString(concatValue));
+						}
+						// <1>: remove the current value
+						removeCurrentValueRefFromIndex(kv.getRow(), changedIndexColumn.toString(), concatValue, regionIndex);
+						// <2>: add the new value
+						
+						LOG.error("Coprocessor: Remove: row: " + Bytes.toString(kv.getRow()) + " concatValue: " + Bytes.toString(concatValue));
+						
+						addNewValueRefToIndex(kv.getRow(), changedIndexColumn.toString(), concatValue, regionIndex);
+					}
+					
+					
+					
+				} else if (currentValue == null) {
+					
+					changedIndexColumnSet = singleMappedIndex.get(new Column(kv.getFamily()).setQualifier(kv.getQualifier()).toString());
+					for(IndexedColumn changedIndexColumn: changedIndexColumnSet) {
+						concatValue = null;
+						for(Column column: changedIndexColumn.getColumnList()) {
+							if(Bytes.equals(Util.concatByteArray(column.getFamily(), column.getQualifier()), Util.concatByteArray(kv.getFamily(), kv.getQualifier())) == true) {
+								concatValue = Util.concatByteArray(concatValue, kv.getValue());
+							} else {
+								concatValue = Util.concatByteArray(concatValue, currentRow.getValue(column.getFamily(), column.getQualifier()));
+							}
+							LOG.error(column.toString() + ": " + Bytes.toString(concatValue));
+						}
+						// <2>: add the new value
+						
+						LOG.error("Coprocessor: addNew: row: " + Bytes.toString(kv.getRow()) + " concatValue: " + Bytes.toString(concatValue));
+
+						
+						addNewValueRefToIndex(kv.getRow(), changedIndexColumn.toString(), concatValue, regionIndex);
+					}
+				} else {
+					// Nothing to do, new value is the same as the old value
+				}
+			} catch (IOException IOe) {
+				LOG.error(
+						"INDEX: PUT: Failed to add to index for " + "table ["
+								+ tableName.toString() + "], " + "column ["
+								+ Bytes.toString(kv.getFamily()) + ":"
+								+ Bytes.toString(kv.getQualifier()) + "]", IOe);
+				throw IOe;
+			} catch (ClassNotFoundException CNFe) {
+				LOG.error(
+						"INDEX: PUT: Failed to add to index for " + "table ["
+								+ tableName.toString() + "], " + "column ["
+								+ Bytes.toString(kv.getFamily()) + ":"
+								+ Bytes.toString(kv.getQualifier()) + "]",
+						CNFe);
+				throw new IOException(CNFe);
+			}
+		}
+	}
+	
+	
 
 	private void addNewValueRef(KeyValue newValue, RegionIndex regionIndex)
 	throws IOException, ClassNotFoundException {
@@ -427,6 +474,15 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 		AbstractPluggableIndex rci = regionIndex.get(column.toString());
 		rci.add(newValue.getValue(), newValue.getRow());
 	}
+	
+	private void addNewValueRefToIndex(byte[] row, String abstractIndexKey, byte [] currentValue, RegionIndex regionIndex)
+			throws IOException, ClassNotFoundException {
+				// Changed by Cong
+				AbstractPluggableIndex rci = regionIndex.get(abstractIndexKey);
+				rci.add(currentValue, row);
+	}
+	
+	
 
 	private void removeCurrentValueRef(byte[] row, KeyValue currentValue,
 			RegionIndex regionIndex)
@@ -435,6 +491,15 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 		Column column = new Column(currentValue.getFamily(), currentValue.getQualifier());
 		AbstractPluggableIndex rci = regionIndex.get(column.toString());
 		rci.remove(currentValue.getValue(), row);
+	}
+	
+	
+	private void removeCurrentValueRefFromIndex(byte[] row, String abstractIndexKey, byte [] currentValue,
+			RegionIndex regionIndex)
+	throws IOException, ClassNotFoundException {
+		// Changed by Cong
+		AbstractPluggableIndex rci = regionIndex.get(abstractIndexKey);
+		rci.remove(currentValue, row);
 	}
 
 //	@SuppressWarnings("unchecked")
@@ -642,11 +707,19 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 			RegionIndex regionIndex = RegionIndexMap.getInstance().get(regionName);
 
 			if (regionIndex != null) {
-				Set<String> indexedColumns = regionIndex.getIndexedColumns();
 				
-				if (!indexedColumns.isEmpty()) {
+				// added
+				HashMap<String, Set<IndexedColumn>> singleMappedIndex = regionIndex.getSingleMappedIndex();
+				Set<String> singleMappedIndexKeySet = singleMappedIndex.keySet();
+				
+				
+				//Set<String> indexedColumns = regionIndex.getIndexedColumns();
+				
+				if (!singleMappedIndexKeySet.isEmpty()) {
+					// Contains cf:qualifier=value from put request
 					List<KeyValue> kVListToIndex = new ArrayList<KeyValue>();
-					getValueToIndex(put, kVListToIndex, indexedColumns);
+					// Contains all the singleMapped key: Set<cf:a,cf:b>
+					getValueToIndex(put, kVListToIndex, singleMappedIndexKeySet);
 
 					if (!kVListToIndex.isEmpty()) {
 						Get get = new Get(put.getRow());
@@ -662,7 +735,11 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 									+ "indexed column value.", IOe);
 							throw IOe;
 						}
-						updateTableIndexes(kVListToIndex, result, regionIndex);
+						
+						// changed
+						updateTableIndexes(kVListToIndex, singleMappedIndex, result, regionIndex);
+						
+						//updateTableIndexes(kVListToIndex, result, regionIndex);
 					}
 				}
 			}
