@@ -170,8 +170,13 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 					boolean more;
 					do {
 						more = scanner.nextRaw(values);
+						
 
 						if (!values.isEmpty()) {
+							// checking for multiIndexing
+							if(values.size() != colList.size()){
+								continue;
+							}
 							byte[] rowid = values.get(0).getRow();
 							byte[] concatValues = null;
 							for (Cell cell : values) {
