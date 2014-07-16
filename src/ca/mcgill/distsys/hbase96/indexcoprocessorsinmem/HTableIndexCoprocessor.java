@@ -4,6 +4,7 @@ import ca.mcgill.distsys.hbase96.indexcommonsinmem.IndexedColumn;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.SecondaryIndexConstants;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.Util;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Column;
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.ColumnValue;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -349,204 +350,333 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 		}
 	}
 
-	private void updateTableIndexes(List<KeyValue> kVListToIndex,
-			Result currentRow, RegionIndex regionIndex) throws IOException {
-
-		for (KeyValue kv : kVListToIndex) {
-			try {
-				KeyValue currentValue = currentRow.getColumnLatest(
-						kv.getFamily(), kv.getQualifier());
-
-				if (currentValue != null
-						&& !Arrays.equals(currentValue.getValue(),
-								kv.getValue())) {
-					// There is a current value for the column but it is
-					// different from the one to be added
-					// => update current value's index to remove the reference
-
-					// (1) This is will do the update operation
-					// -1: remove the current value
-					removeCurrentValueRef(kv.getRow(), currentValue,
-							regionIndex);
-					// -2: add the new value
-					addNewValueRef(kv, regionIndex);
-				} else if (currentValue == null) {
-					// (2) This will do the put operation
-					addNewValueRef(kv, regionIndex);
-				} else {
-					// Nothing to do, new value is the same as the old value
-				}
-			} catch (IOException IOe) {
-				LOG.error(
-						"INDEX: PUT: Failed to add to index for " + "table ["
-								+ tableName.toString() + "], " + "column ["
-								+ Bytes.toString(kv.getFamily()) + ":"
-								+ Bytes.toString(kv.getQualifier()) + "]", IOe);
-				throw IOe;
-			} catch (ClassNotFoundException CNFe) {
-				LOG.error(
-						"INDEX: PUT: Failed to add to index for " + "table ["
-								+ tableName.toString() + "], " + "column ["
-								+ Bytes.toString(kv.getFamily()) + ":"
-								+ Bytes.toString(kv.getQualifier()) + "]", CNFe);
-				throw new IOException(CNFe);
-			}
-		}
-	}
+	// private void updateTableIndexes(List<KeyValue> kVListToIndex,
+	// Result currentRow, RegionIndex regionIndex) throws IOException {
+	//
+	// for (KeyValue kv : kVListToIndex) {
+	// try {
+	// KeyValue currentValue = currentRow.getColumnLatest(
+	// kv.getFamily(), kv.getQualifier());
+	//
+	// if (currentValue != null
+	// && !Arrays.equals(currentValue.getValue(),
+	// kv.getValue())) {
+	// // There is a current value for the column but it is
+	// // different from the one to be added
+	// // => update current value's index to remove the reference
+	//
+	// // (1) This is will do the update operation
+	// // -1: remove the current value
+	// removeCurrentValueRef(kv.getRow(), currentValue,
+	// regionIndex);
+	// // -2: add the new value
+	// addNewValueRef(kv, regionIndex);
+	// } else if (currentValue == null) {
+	// // (2) This will do the put operation
+	// addNewValueRef(kv, regionIndex);
+	// } else {
+	// // Nothing to do, new value is the same as the old value
+	// }
+	// } catch (IOException IOe) {
+	// LOG.error(
+	// "INDEX: PUT: Failed to add to index for " + "table ["
+	// + tableName.toString() + "], " + "column ["
+	// + Bytes.toString(kv.getFamily()) + ":"
+	// + Bytes.toString(kv.getQualifier()) + "]", IOe);
+	// throw IOe;
+	// } catch (ClassNotFoundException CNFe) {
+	// LOG.error(
+	// "INDEX: PUT: Failed to add to index for " + "table ["
+	// + tableName.toString() + "], " + "column ["
+	// + Bytes.toString(kv.getFamily()) + ":"
+	// + Bytes.toString(kv.getQualifier()) + "]", CNFe);
+	// throw new IOException(CNFe);
+	// }
+	// }
+	// }
 
 	// changed
+	// private void updateTableIndexes(List<KeyValue> kVListToIndex,
+	// HashMap<String, Set<IndexedColumn>> singleMappedIndex,
+	// Result currentRow, RegionIndex regionIndex) throws IOException {
+	//
+	// Set<IndexedColumn> changedIndexColumnSet;
+	// Set<IndexedColumn> alreadyChangedIndexColumnSet = new
+	// HashSet<IndexedColumn>();
+	// KeyValue nextColumn = null;
+	// boolean isIndexed = false;
+	// byte[] concatValue;
+	// for (KeyValue kv : kVListToIndex) {
+	// try {
+	// KeyValue currentValue = currentRow.getColumnLatest(
+	// kv.getFamily(), kv.getQualifier());
+	//
+	// if (currentValue != null
+	// && !Arrays.equals(currentValue.getValue(),
+	// kv.getValue())) {
+	// // There is a current value for the column but it is
+	// // different from the one to be added
+	// // => update current value's index to remove the reference
+	//
+	// // (1) This is will do the update operation
+	//
+	// changedIndexColumnSet = singleMappedIndex.get(new Column(kv
+	// .getFamily()).setQualifier(kv.getQualifier())
+	// .toString());
+	// for (IndexedColumn changedIndexColumn : changedIndexColumnSet) {
+	// if (alreadyChangedIndexColumnSet
+	// .contains(changedIndexColumn)) {
+	// continue;
+	// } else {
+	// alreadyChangedIndexColumnSet
+	// .add(changedIndexColumn);
+	// isIndexed = true;
+	// concatValue = null;
+	// for (Column column : changedIndexColumn
+	// .getColumnList()) {
+	// if (Bytes.equals(Util.concatByteArray(
+	// column.getFamily(),
+	// column.getQualifier()), Util
+	// .concatByteArray(kv.getFamily(),
+	// kv.getQualifier())) == true) {
+	// concatValue = Util.concatByteArray(
+	// concatValue, kv.getValue());
+	// } else {
+	// nextColumn = currentRow.getColumnLatest(
+	// column.getFamily(),
+	// column.getQualifier());
+	// if (nextColumn != null) {
+	// concatValue = Util.concatByteArray(
+	// concatValue,
+	// nextColumn.getValue());
+	// } else {
+	// isIndexed = false;
+	// break;
+	// }
+	// }
+	// }
+	// if (isIndexed) {
+	// // <1>: remove the current value
+	// removeCurrentValueRefFromIndex(kv.getRow(),
+	// changedIndexColumn.toString(),
+	// concatValue, regionIndex);
+	// // <2>: add the new value
+	//
+	// LOG.error("Coprocessor: Remove: row: "
+	// + Bytes.toString(kv.getRow())
+	// + " concatValue: "
+	// + Bytes.toString(concatValue));
+	//
+	// addNewValueRefToIndex(kv.getRow(),
+	// changedIndexColumn.toString(),
+	// concatValue, regionIndex);
+	// }
+	//
+	// }
+	//
+	// }
+	//
+	// } else if (currentValue == null) {
+	//
+	// changedIndexColumnSet = singleMappedIndex.get(new Column(kv
+	// .getFamily()).setQualifier(kv.getQualifier())
+	// .toString());
+	// for (IndexedColumn changedIndexColumn : changedIndexColumnSet) {
+	//
+	// if (alreadyChangedIndexColumnSet
+	// .contains(changedIndexColumn)) {
+	// continue;
+	// } else {
+	// alreadyChangedIndexColumnSet
+	// .add(changedIndexColumn);
+	// isIndexed = true;
+	// concatValue = null;
+	// for (Column column : changedIndexColumn
+	// .getColumnList()) {
+	// if (Bytes.equals(Util.concatByteArray(
+	// column.getFamily(),
+	// column.getQualifier()), Util
+	// .concatByteArray(kv.getFamily(),
+	// kv.getQualifier())) == true) {
+	// concatValue = Util.concatByteArray(
+	// concatValue, kv.getValue());
+	// } else {
+	// nextColumn = currentRow.getColumnLatest(
+	// column.getFamily(),
+	// column.getQualifier());
+	// if (nextColumn != null) {
+	// concatValue = Util.concatByteArray(
+	// concatValue,
+	// currentRow.getValue(
+	// column.getFamily(),
+	// column.getQualifier()));
+	// } else {
+	// isIndexed = false;
+	// break;
+	// }
+	// }
+	// }
+	// // <1>: add the new value
+	//
+	// LOG.error("Coprocessor: addNew: row: "
+	// + Bytes.toString(kv.getRow())
+	// + " concatValue: "
+	// + Bytes.toString(concatValue));
+	//
+	// addNewValueRefToIndex(kv.getRow(),
+	// changedIndexColumn.toString(), concatValue,
+	// regionIndex);
+	//
+	// }
+	//
+	// }
+	// } else {
+	// // Nothing to do, new value is the same as the old value
+	// }
+	// } catch (IOException IOe) {
+	// LOG.error(
+	// "INDEX: PUT: Failed to add to index for " + "table ["
+	// + tableName.toString() + "], " + "column ["
+	// + Bytes.toString(kv.getFamily()) + ":"
+	// + Bytes.toString(kv.getQualifier()) + "]", IOe);
+	// throw IOe;
+	// } catch (ClassNotFoundException CNFe) {
+	// LOG.error(
+	// "INDEX: PUT: Failed to add to index for " + "table ["
+	// + tableName.toString() + "], " + "column ["
+	// + Bytes.toString(kv.getFamily()) + ":"
+	// + Bytes.toString(kv.getQualifier()) + "]", CNFe);
+	// throw new IOException(CNFe);
+	// }
+	// }
+	// }
+
 	private void updateTableIndexes(List<KeyValue> kVListToIndex,
 			HashMap<String, Set<IndexedColumn>> singleMappedIndex,
 			Result currentRow, RegionIndex regionIndex) throws IOException {
 
 		Set<IndexedColumn> changedIndexColumnSet;
-		Set<IndexedColumn> alreadyChangedIndexColumnSet = new HashSet<IndexedColumn>();
+		Set<IndexedColumn> allChangedIndexColumnSet = new HashSet<IndexedColumn>();
+		List<ColumnValue> existColumns = new ArrayList<ColumnValue>();
+		List<ColumnValue> newColumns = new ArrayList<ColumnValue>();
+		ColumnValue tempColumnValue;
 		KeyValue nextColumn = null;
-		boolean isIndexed = false;
-		byte[] concatValue;
+		int index;
+		boolean isIndexed = true;
+		boolean isNew = false;
+		byte[] concatOldValue;
+		byte[] concatNewValue;
+		byte[] rowKey = currentRow.getRow();
 		for (KeyValue kv : kVListToIndex) {
-			try {
-				KeyValue currentValue = currentRow.getColumnLatest(
-						kv.getFamily(), kv.getQualifier());
+			KeyValue currentValue = currentRow.getColumnLatest(kv.getFamily(),
+					kv.getQualifier());
 
-				if (currentValue != null
-						&& !Arrays.equals(currentValue.getValue(),
-								kv.getValue())) {
-					// There is a current value for the column but it is
-					// different from the one to be added
-					// => update current value's index to remove the reference
+			if (currentValue != null
+					&& !Arrays.equals(currentValue.getValue(), kv.getValue())) {
 
-					// (1) This is will do the update operation
+				// There is a current value for the column but it is
+				// different from the one to be added
+				// => update current value's index to remove the reference
+				tempColumnValue = new ColumnValue(kv.getFamily());
+				tempColumnValue.setQualifier(kv.getQualifier());
+				tempColumnValue.setColumnValue(kv.getValue());
+				changedIndexColumnSet = singleMappedIndex.get(tempColumnValue
+						.toString());
+				allChangedIndexColumnSet.addAll(changedIndexColumnSet);
+				existColumns.add(tempColumnValue);
 
-					changedIndexColumnSet = singleMappedIndex.get(new Column(kv
-							.getFamily()).setQualifier(kv.getQualifier())
-							.toString());
-					for (IndexedColumn changedIndexColumn : changedIndexColumnSet) {
-						if (alreadyChangedIndexColumnSet
-								.contains(changedIndexColumn)) {
-							continue;
-						} else {
-							alreadyChangedIndexColumnSet
-									.add(changedIndexColumn);
-							isIndexed = true;
-							concatValue = null;
-							for (Column column : changedIndexColumn
-									.getColumnList()) {
-								if (Bytes.equals(Util.concatByteArray(
-										column.getFamily(),
-										column.getQualifier()), Util
-										.concatByteArray(kv.getFamily(),
-												kv.getQualifier())) == true) {
-									concatValue = Util.concatByteArray(
-											concatValue, kv.getValue());
-								} else {
-									nextColumn = currentRow.getColumnLatest(
-											column.getFamily(),
-											column.getQualifier());
-									if (nextColumn != null) {
-										concatValue = Util.concatByteArray(
-												concatValue,
-												nextColumn.getValue());
-									} else {
-										isIndexed = false;
-										break;
-									}
-								}
-							}
-							if (isIndexed) {
-								// <1>: remove the current value
-								removeCurrentValueRefFromIndex(kv.getRow(),
-										changedIndexColumn.toString(),
-										concatValue, regionIndex);
-								// <2>: add the new value
+			} else if (currentValue == null) {
 
-								LOG.error("Coprocessor: Remove: row: "
-										+ Bytes.toString(kv.getRow())
-										+ " concatValue: "
-										+ Bytes.toString(concatValue));
-
-								addNewValueRefToIndex(kv.getRow(),
-										changedIndexColumn.toString(),
-										concatValue, regionIndex);
-							}
-
-						}
-
-					}
-
-				} else if (currentValue == null) {
-
-					changedIndexColumnSet = singleMappedIndex.get(new Column(kv
-							.getFamily()).setQualifier(kv.getQualifier())
-							.toString());
-					for (IndexedColumn changedIndexColumn : changedIndexColumnSet) {
-
-						if (alreadyChangedIndexColumnSet
-								.contains(changedIndexColumn)) {
-							continue;
-						} else {
-							alreadyChangedIndexColumnSet
-									.add(changedIndexColumn);
-							isIndexed = true;
-							concatValue = null;
-							for (Column column : changedIndexColumn
-									.getColumnList()) {
-								if (Bytes.equals(Util.concatByteArray(
-										column.getFamily(),
-										column.getQualifier()), Util
-										.concatByteArray(kv.getFamily(),
-												kv.getQualifier())) == true) {
-									concatValue = Util.concatByteArray(
-											concatValue, kv.getValue());
-								} else {
-									nextColumn = currentRow.getColumnLatest(
-											column.getFamily(),
-											column.getQualifier());
-									if (nextColumn != null) {
-										concatValue = Util.concatByteArray(
-												concatValue,
-												currentRow.getValue(
-														column.getFamily(),
-														column.getQualifier()));
-									} else {
-										isIndexed = false;
-										break;
-									}
-								}
-							}
-							// <1>: add the new value
-
-							LOG.error("Coprocessor: addNew: row: "
-									+ Bytes.toString(kv.getRow())
-									+ " concatValue: "
-									+ Bytes.toString(concatValue));
-
-							addNewValueRefToIndex(kv.getRow(),
-									changedIndexColumn.toString(), concatValue,
-									regionIndex);
-
-						}
-
-					}
-				} else {
-					// Nothing to do, new value is the same as the old value
-				}
-			} catch (IOException IOe) {
-				LOG.error(
-						"INDEX: PUT: Failed to add to index for " + "table ["
-								+ tableName.toString() + "], " + "column ["
-								+ Bytes.toString(kv.getFamily()) + ":"
-								+ Bytes.toString(kv.getQualifier()) + "]", IOe);
-				throw IOe;
-			} catch (ClassNotFoundException CNFe) {
-				LOG.error(
-						"INDEX: PUT: Failed to add to index for " + "table ["
-								+ tableName.toString() + "], " + "column ["
-								+ Bytes.toString(kv.getFamily()) + ":"
-								+ Bytes.toString(kv.getQualifier()) + "]", CNFe);
-				throw new IOException(CNFe);
+				// new column added
+				tempColumnValue = new ColumnValue(kv.getFamily());
+				tempColumnValue.setQualifier(kv.getQualifier());
+				tempColumnValue.setColumnValue(kv.getValue());
+				changedIndexColumnSet = singleMappedIndex.get(tempColumnValue
+						.toString());
+				allChangedIndexColumnSet.addAll(changedIndexColumnSet);
+				newColumns.add(tempColumnValue);
+			} else {
+				// Nothing to do, new value is the same as the old value
 			}
 		}
+
+		for (IndexedColumn indexedColumn : allChangedIndexColumnSet) {
+			isIndexed = true;
+			isNew = false;
+			concatOldValue = null;
+			concatNewValue = null;
+
+			for (Column column : indexedColumn.getColumnList()) {
+				nextColumn = currentRow.getColumnLatest(column.getFamily(),
+						column.getQualifier());
+				if (nextColumn == null) {
+					isIndexed = false;
+					break;
+				} else {
+					tempColumnValue = new ColumnValue(column.getFamily());
+					tempColumnValue.setQualifier(column.getQualifier());
+					if ((index = newColumns.indexOf(tempColumnValue)) != -1) {
+						isNew = true;
+						concatNewValue = Util.concatByteArray(concatNewValue,
+								newColumns.get(index).getColumnValue());
+					} else {
+						if ((index = existColumns.indexOf(tempColumnValue)) != -1) {
+							if (isNew == true) {
+								concatNewValue = Util.concatByteArray(
+										concatNewValue, existColumns.get(index)
+												.getColumnValue());
+							} else {
+								concatNewValue = Util.concatByteArray(
+										concatNewValue, existColumns.get(index)
+												.getColumnValue());
+								concatOldValue = Util.concatByteArray(
+										concatOldValue, nextColumn.getValue());
+							}
+						} else {
+							if (isNew == true) {
+								concatNewValue = Util.concatByteArray(
+										concatNewValue, nextColumn.getValue());
+							} else {
+								concatNewValue = Util.concatByteArray(
+										concatNewValue, nextColumn.getValue());
+								concatOldValue = Util.concatByteArray(
+										concatOldValue, nextColumn.getValue());
+							}
+						}
+					}
+				}
+			}
+
+			if (isIndexed) {
+				try {
+					if (isNew) {
+						addNewValueRefToIndex(rowKey,
+								indexedColumn.toString(), concatNewValue, regionIndex);
+					} else {
+						
+						removeCurrentValueRefFromIndex(rowKey,
+								indexedColumn.toString(), concatOldValue, regionIndex);
+						
+						addNewValueRefToIndex(rowKey,
+								indexedColumn.toString(), concatNewValue, regionIndex);
+					}
+				} catch (IOException IOe) {
+					LOG.error(
+							"INDEX: PUT: Failed to add to index for " + "table ["
+									+ tableName.toString() + "], " + "column ["
+									+ indexedColumn.toString() + "]", IOe);
+					throw IOe;
+				} catch (ClassNotFoundException CNFe) {
+					LOG.error(
+							"INDEX: PUT: Failed to add to index for " + "table ["
+									+ tableName.toString() + "], " + "column ["
+									+ indexedColumn.toString() + "]", CNFe);
+					throw new IOException(CNFe);
+				}
+				
+			}
+		}
+
 	}
 
 	private void addNewValueRef(KeyValue newValue, RegionIndex regionIndex)
