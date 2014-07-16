@@ -553,7 +553,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 
 	private void updateTableIndexes(List<KeyValue> kVListToIndex,
 			HashMap<String, Set<IndexedColumn>> singleMappedIndex,
-			Result currentRow, RegionIndex regionIndex) throws IOException {
+			Result currentRow, RegionIndex regionIndex, byte[] rowKey) throws IOException {
 
 		Set<IndexedColumn> changedIndexColumnSet;
 		Set<IndexedColumn> allChangedIndexColumnSet = new HashSet<IndexedColumn>();
@@ -566,7 +566,8 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 		boolean isNew = false;
 		byte[] concatOldValue;
 		byte[] concatNewValue;
-		byte[] rowKey = currentRow.getRow();
+		// return null??
+		//byte[] rowKey = currentRow.getRow();
 		for (KeyValue kv : kVListToIndex) {
 			KeyValue currentValue = currentRow.getColumnLatest(kv.getFamily(),
 					kv.getQualifier());
@@ -584,6 +585,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 						.toString());
 				allChangedIndexColumnSet.addAll(changedIndexColumnSet);
 				existColumns.add(tempColumnValue);
+				LOG.error("Hello1: tempColumnValue: " + tempColumnValue.toString() + " value: " + Bytes.toString(tempColumnValue.getColumnValue()));
 
 			} else if (currentValue == null) {
 
@@ -595,6 +597,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 						.toString());
 				allChangedIndexColumnSet.addAll(changedIndexColumnSet);
 				newColumns.add(tempColumnValue);
+				LOG.error("Hello2: tempColumnValue: " + tempColumnValue.toString() + " value: " + Bytes.toString(tempColumnValue.getColumnValue()));
 			} else {
 				// Nothing to do, new value is the same as the old value
 			}
@@ -607,19 +610,20 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 			concatNewValue = null;
 
 			for (Column column : indexedColumn.getColumnList()) {
+				tempColumnValue = new ColumnValue(column.getFamily());
+				tempColumnValue.setQualifier(column.getQualifier());
 				nextColumn = currentRow.getColumnLatest(column.getFamily(),
 						column.getQualifier());
-				if (nextColumn == null) {
-					isIndexed = false;
-					break;
+					
+				if ((index = newColumns.indexOf(tempColumnValue)) != -1) {
+					isNew = true;
+					concatNewValue = Util.concatByteArray(concatNewValue,
+							newColumns.get(index).getColumnValue());
 				} else {
-					tempColumnValue = new ColumnValue(column.getFamily());
-					tempColumnValue.setQualifier(column.getQualifier());
-					if ((index = newColumns.indexOf(tempColumnValue)) != -1) {
-						isNew = true;
-						concatNewValue = Util.concatByteArray(concatNewValue,
-								newColumns.get(index).getColumnValue());
-					} else {
+					if (nextColumn == null) {
+						isIndexed = false;
+						break;
+					}  else {
 						if ((index = existColumns.indexOf(tempColumnValue)) != -1) {
 							if (isNew == true) {
 								concatNewValue = Util.concatByteArray(
@@ -650,15 +654,19 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 			if (isIndexed) {
 				try {
 					if (isNew) {
+						LOG.error("HelloFinal1: rowKey: " + Bytes.toString(rowKey) + "indexedColumn: " + indexedColumn.toString() + " concatNewValue: " + Bytes.toString(concatNewValue));
 						addNewValueRefToIndex(rowKey,
 								indexedColumn.toString(), concatNewValue, regionIndex);
 					} else {
 						
+						LOG.error("HelloFinal1: rowKey: " + Bytes.toString(rowKey) + "indexedColumn: " + indexedColumn.toString() + " concatOldValue: " + Bytes.toString(concatOldValue));
+						LOG.error("HelloFinal2: rowKey: " + Bytes.toString(rowKey) + "indexedColumn: " + indexedColumn.toString() + " concatNewValue: " + Bytes.toString(concatNewValue));
 						removeCurrentValueRefFromIndex(rowKey,
 								indexedColumn.toString(), concatOldValue, regionIndex);
 						
 						addNewValueRefToIndex(rowKey,
 								indexedColumn.toString(), concatNewValue, regionIndex);
+						
 					}
 				} catch (IOException IOe) {
 					LOG.error(
@@ -955,7 +963,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 
 						// changed
 						updateTableIndexes(kVListToIndex, singleMappedIndex,
-								result, regionIndex);
+								result, regionIndex, put.getRow());
 
 						// updateTableIndexes(kVListToIndex, result,
 						// regionIndex);
