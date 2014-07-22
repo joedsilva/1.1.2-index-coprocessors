@@ -321,6 +321,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 			}
 		}
 
+		// This is because we create new regionIndex if regionIndex == null...
 		if (regionIndex != null
 				&& RegionIndexMap.getInstance().get(regionName) == null) {
 			RegionIndexMap.getInstance().add(regionName, regionIndex);

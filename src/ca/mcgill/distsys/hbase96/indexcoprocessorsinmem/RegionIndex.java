@@ -216,11 +216,12 @@ public class RegionIndex implements Serializable {
 		try {
 			//String idxColKey = Util.concatColumnsToString(colList);
 			colIndex.remove(colList);
-			//removeFromSingleMappedIndex(colList);
+			removeFromSingleMappedIndex(Util.buildColumnList(colList));
 		} finally {
 			rwLock.writeLock().unlock();
 		}
 	}
+	
 
 	public Set<String> getIndexedColumns() {
 		return colIndex.keySet();
