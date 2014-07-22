@@ -578,26 +578,22 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 				// There is a current value for the column but it is
 				// different from the one to be added
 				// => update current value's index to remove the reference
-				tempColumnValue = new ColumnValue(kv.getFamily());
-				tempColumnValue.setQualifier(kv.getQualifier());
-				tempColumnValue.setColumnValue(kv.getValue());
+				tempColumnValue = new ColumnValue(kv);
 				changedIndexColumnSet = singleMappedIndex.get(tempColumnValue
 						.toString());
 				allChangedIndexColumnSet.addAll(changedIndexColumnSet);
 				existColumns.add(tempColumnValue);
-				LOG.error("Hello1: tempColumnValue: " + tempColumnValue.toString() + " value: " + Bytes.toString(tempColumnValue.getColumnValue()));
+				LOG.debug("Hello1: tempColumnValue: " + tempColumnValue.toStringFull());
 
 			} else if (currentValue == null) {
 
 				// new column added
-				tempColumnValue = new ColumnValue(kv.getFamily());
-				tempColumnValue.setQualifier(kv.getQualifier());
-				tempColumnValue.setColumnValue(kv.getValue());
+				tempColumnValue = new ColumnValue(kv);
 				changedIndexColumnSet = singleMappedIndex.get(tempColumnValue
 						.toString());
 				allChangedIndexColumnSet.addAll(changedIndexColumnSet);
 				newColumns.add(tempColumnValue);
-				LOG.error("Hello2: tempColumnValue: " + tempColumnValue.toString() + " value: " + Bytes.toString(tempColumnValue.getColumnValue()));
+        LOG.debug("Hello2: tempColumnValue: " + tempColumnValue.toStringFull());
 			} else {
 				// Nothing to do, new value is the same as the old value
 			}
@@ -610,15 +606,14 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 			concatNewValue = null;
 
 			for (Column column : indexedColumn.getColumnList()) {
-				tempColumnValue = new ColumnValue(column.getFamily());
-				tempColumnValue.setQualifier(column.getQualifier());
+				tempColumnValue = new ColumnValue(column);
 				nextColumn = currentRow.getColumnLatest(column.getFamily(),
 						column.getQualifier());
 					
 				if ((index = newColumns.indexOf(tempColumnValue)) != -1) {
 					isNew = true;
 					concatNewValue = Util.concatByteArray(concatNewValue,
-							newColumns.get(index).getColumnValue());
+							newColumns.get(index).getValue());
 				} else {
 					if (nextColumn == null) {
 						isIndexed = false;
@@ -627,12 +622,10 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 						if ((index = existColumns.indexOf(tempColumnValue)) != -1) {
 							if (isNew == true) {
 								concatNewValue = Util.concatByteArray(
-										concatNewValue, existColumns.get(index)
-												.getColumnValue());
+										concatNewValue, existColumns.get(index).getValue());
 							} else {
 								concatNewValue = Util.concatByteArray(
-										concatNewValue, existColumns.get(index)
-												.getColumnValue());
+										concatNewValue, existColumns.get(index).getValue());
 								concatOldValue = Util.concatByteArray(
 										concatOldValue, nextColumn.getValue());
 							}
@@ -654,13 +647,19 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 			if (isIndexed) {
 				try {
 					if (isNew) {
-						LOG.error("HelloFinal1: rowKey: " + Bytes.toString(rowKey) + "indexedColumn: " + indexedColumn.toString() + " concatNewValue: " + Bytes.toString(concatNewValue));
+						LOG.debug("HelloFinal1: rowKey: " + Bytes.toString(rowKey) +
+                ", indexedColumn: " + indexedColumn.toString() +
+                ", concatNewValue: " + Bytes.toString(concatNewValue));
 						addNewValueRefToIndex(rowKey,
-								indexedColumn.toString(), concatNewValue, regionIndex);
+                indexedColumn.toString(), concatNewValue, regionIndex);
 					} else {
 						
-						LOG.error("HelloFinal1: rowKey: " + Bytes.toString(rowKey) + "indexedColumn: " + indexedColumn.toString() + " concatOldValue: " + Bytes.toString(concatOldValue));
-						LOG.error("HelloFinal2: rowKey: " + Bytes.toString(rowKey) + "indexedColumn: " + indexedColumn.toString() + " concatNewValue: " + Bytes.toString(concatNewValue));
+						LOG.debug("HelloFinal1: rowKey: " + Bytes.toString(rowKey) +
+                ", indexedColumn: " + indexedColumn.toString() +
+                ", concatOldValue: " + Bytes.toString(concatOldValue));
+						LOG.debug("HelloFinal2: rowKey: " + Bytes.toString(rowKey) +
+                ", indexedColumn: " + indexedColumn.toString() +
+                ", concatNewValue: " + Bytes.toString(concatNewValue));
 						removeCurrentValueRefFromIndex(rowKey,
 								indexedColumn.toString(), concatOldValue, regionIndex);
 						
