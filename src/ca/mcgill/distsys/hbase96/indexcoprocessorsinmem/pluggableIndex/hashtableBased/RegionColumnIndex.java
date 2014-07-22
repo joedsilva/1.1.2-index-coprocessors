@@ -329,29 +329,6 @@ public class RegionColumnIndex extends AbstractPluggableIndex implements
 		}
 	}
 
-	public boolean isMultiColumn() {
-		return colList.size() > 1;
-	}
-
-  	// public String toString() {
-	// for (String key : keySet()) {
-	// System.out.print("Key: " + key + "  Values: ");
-	// try {
-	// for (byte[] value : rowIndexMap.get(key).getPKRefs()) {
-	// System.out.print(Bytes.toString(value) + ", ");
-	// }
-	// System.out.println("");
-	// } catch (ClassNotFoundException e) {
-	// // TODO Auto-generated catch block
-	// e.printStackTrace();
-	// } catch (IOException e) {
-	// // TODO Auto-generated catch block
-	// e.printStackTrace();
-	// }
-	// }
-	// return "";
-	// }
-
 	@Override
 	public void split(AbstractPluggableIndex daughterRegionA,
 					  AbstractPluggableIndex daughterRegionB, byte[] splitRow) {
