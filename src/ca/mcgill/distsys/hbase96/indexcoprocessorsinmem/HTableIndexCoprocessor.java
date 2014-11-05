@@ -1043,8 +1043,11 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 										+ "indexed column value.", IOe);
 						throw IOe;
 					}
-					updateTableIndexesForDelete(result, singleMappedIndex,
-							regionIndex, indexedColumns, delete);
+					if(result != null) {
+						updateTableIndexesForDelete(result, singleMappedIndex,
+								regionIndex, indexedColumns, delete);
+					}
+					
 				}
 			}
 		}
