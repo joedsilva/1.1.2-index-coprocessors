@@ -962,8 +962,11 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 						}
 
 						// changed
-						updateTableIndexes(kVListToIndex, singleMappedIndex,
-								result, regionIndex, put.getRow());
+						if( result != null) {
+							updateTableIndexes(kVListToIndex, singleMappedIndex,
+									result, regionIndex, put.getRow());
+						}
+						
 
 						// updateTableIndexes(kVListToIndex, result,
 						// regionIndex);
