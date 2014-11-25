@@ -6,7 +6,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
-import ca.mcgill.distsys.hbase.indexcoprocessorsinmem.RowIndex;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
 
 public class HybridRowIndex implements Comparable<HybridRowIndex> ,  Serializable{
@@ -22,8 +21,8 @@ public class HybridRowIndex implements Comparable<HybridRowIndex> ,  Serializabl
 	
 	public HybridRowIndex(byte [] rowKey){
 		pkRefs = new TreeSet<byte[]>(ByteUtil.BYTES_COMPARATOR);
-        rwLock = new ReentrantReadWriteLock(true);
-        this.rowKey = Bytes.copy(rowKey);
+    rwLock = new ReentrantReadWriteLock(true);
+    this.rowKey = Bytes.copy(rowKey);
 	} 
 	
 	public TreeSet<byte[]> getPKRefs(){
@@ -32,16 +31,15 @@ public class HybridRowIndex implements Comparable<HybridRowIndex> ,  Serializabl
 	
 	protected byte [] [] getPKRefsAsArray(){
 		rwLock.readLock().lock();
-
-        try {
-            if(pkRefs != null){
-            	return pkRefs.toArray(new byte[pkRefs.size()][]);
-            } else {
-            	return null;
-            }
-        } finally {
-            rwLock.readLock().unlock();
+      try {
+        if(pkRefs != null){
+          return pkRefs.toArray(new byte[pkRefs.size()][]);
+        } else {
+          return null;
         }
+      } finally {
+        rwLock.readLock().unlock();
+      }
 	}
 	
 	public byte[] getRowKey(){
@@ -62,7 +60,6 @@ public class HybridRowIndex implements Comparable<HybridRowIndex> ,  Serializabl
 
 	@Override
 	public int compareTo(HybridRowIndex arg0) {
-		
 		// left > right, return positive. left == right, return 0
 		return Bytes.compareTo(this.rowKey, arg0.getRowKey());
 	}
