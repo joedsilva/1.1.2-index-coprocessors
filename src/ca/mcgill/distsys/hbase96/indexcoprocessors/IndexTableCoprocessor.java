@@ -29,6 +29,7 @@ import ca.mcgill.distsys.hbase96.indexcommons.Util;
 public class IndexTableCoprocessor extends BaseRegionObserver {
     private static final Log LOG = LogFactory.getLog(IndexTableCoprocessor.class);
     private byte[] tableName;
+    private String tableNameAsString;
     private boolean doNotRun = true;
 
     private long localGetElapsed = 0;
@@ -49,8 +50,9 @@ public class IndexTableCoprocessor extends BaseRegionObserver {
         HTableDescriptor desc = env.getRegion().getTableDesc();
 
         tableName = desc.getName();
+        tableNameAsString = desc.getNameAsString();
 
-        if (Bytes.toString(tableName).endsWith(SecondaryIndexConstants.INDEX_TABLE_SUFFIX)) {
+        if (tableNameAsString.endsWith(SecondaryIndexConstants.INDEX_TABLE_SUFFIX)) {
             doNotRun = false;
             localElapsed = new ArrayList<Long>();
             remoteElapsed = new ArrayList<Long>();
@@ -75,14 +77,14 @@ public class IndexTableCoprocessor extends BaseRegionObserver {
         try {
             rs = region.get(get);
         } catch (IOException e) {
-            LOG.error(
-                    "PUT: Failed to retrieve the current row. This is required for index update. The index may be in an invalid state if the put succeeds and affects an already indexed column value.",
-                    e);
+            LOG.error("PUT: Failed to retrieve the current row. This is " +
+                "required for index update. The index may be in an " +
+                "invalid state if the put succeeds and affects an " +
+                "already indexed column value.", e);
             throw e;
         }
 
         TreeSet<byte[]> primaryRowKeys;
-        LOG.debug("XYZ   ");
         if (!rs.isEmpty()) {
             try {
                 primaryRowKeys = Util.deserializeIndex(rs.getValue(idxCF, idxC));
@@ -139,6 +141,8 @@ public class IndexTableCoprocessor extends BaseRegionObserver {
     @Override
     public void prePut(ObserverContext<RegionCoprocessorEnvironment> env, Put put, WALEdit edit, Durability durability) throws IOException {
         if (!doNotRun) {
+            long startTime = System.nanoTime();
+
             byte[] operationType = ((KeyValue) (put.getFamilyMap().get(Bytes.toBytes(SecondaryIndexConstants.INDEX_TABLE_IDX_CF_NAME)).get(0)))
                     .getQualifier();
             byte[] value;
@@ -153,6 +157,9 @@ public class IndexTableCoprocessor extends BaseRegionObserver {
                 processRemovalFromIdx(env, put, value);
                 env.bypass();
             }
+
+            long duration = (System.nanoTime() - startTime) / 1000;
+            LOG.trace(tableNameAsString + ": prePut (HTable internal): " + duration + " us");
         }
     }
 

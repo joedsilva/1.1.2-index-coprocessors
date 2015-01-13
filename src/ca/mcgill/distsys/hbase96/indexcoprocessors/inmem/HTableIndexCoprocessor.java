@@ -926,6 +926,9 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 	public void prePut(ObserverContext<RegionCoprocessorEnvironment> env,
 			Put put, WALEdit edit, Durability durability) throws IOException {
 		if (!doNotRun) {
+
+      long startTime = System.nanoTime();
+
 			RegionIndex regionIndex = RegionIndexMap.getInstance().get(
 					regionName);
 
@@ -969,6 +972,9 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 					}
 				}
 			}
+
+      long duration = (System.nanoTime() - startTime)/1000;
+      LOG.trace(tableName.getNameAsString() + ": prePut (inmem): " + duration + " us");
 		}
 	}
 

@@ -93,8 +93,11 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
     @Override
     public void prePut(ObserverContext<RegionCoprocessorEnvironment> e, Put put, WALEdit edit, Durability durability) throws IOException {
         if (!doNotRun) {
+            long startTime = System.nanoTime();
             HTableIndexPutHandler putHandler = new HTableIndexPutHandler(put, this, e);
             putHandler.processPut();
+            long duration = (System.nanoTime() - startTime) / 1000;
+            LOG.trace(tableNameAsString + ": prePut (HTable): " + duration + " us");
         }
     }
 
