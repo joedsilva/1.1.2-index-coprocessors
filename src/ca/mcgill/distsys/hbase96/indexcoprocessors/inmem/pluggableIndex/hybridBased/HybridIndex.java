@@ -1,10 +1,10 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridBased;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased;
 
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Range;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.commons.ByteArrayWrapper;
+import ca.mcgill.distsys.hbase96.indexcommons.ByteUtil;
+import ca.mcgill.distsys.hbase96.indexcommons.proto.Criterion;
+import ca.mcgill.distsys.hbase96.indexcommons.proto.Range;
+import ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.AbstractPluggableIndex;
+import ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.commons.ByteArrayWrapper;
 import com.google.common.collect.BoundType;
 import com.google.common.collect.SortedMultiset;
 import com.google.common.collect.TreeMultiset;

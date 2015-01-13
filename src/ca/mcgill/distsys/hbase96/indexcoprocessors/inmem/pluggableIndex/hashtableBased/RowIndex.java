@@ -1,4 +1,4 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hashtableBased;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hashtableBased;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -12,7 +12,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.xerial.snappy.SnappyInputStream;
 import org.xerial.snappy.SnappyOutputStream;
 
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
+import ca.mcgill.distsys.hbase96.indexcommons.ByteUtil;
 
 public class RowIndex implements Serializable {
     private static final long serialVersionUID = 8982587193479743555L;

@@ -1,14 +1,14 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem;
 
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.IndexedColumn;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.Util;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.ByteArrayCriterion;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Column;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.IndexedColumnQuery;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion.CompareType;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.protobuf.generated.IndexCoprocessorInMem.ProtoResult;
+import ca.mcgill.distsys.hbase96.indexcommons.IndexedColumn;
+import ca.mcgill.distsys.hbase96.indexcommons.Util;
+import ca.mcgill.distsys.hbase96.indexcommons.proto.ByteArrayCriterion;
+import ca.mcgill.distsys.hbase96.indexcommons.proto.Column;
+import ca.mcgill.distsys.hbase96.indexcommons.proto.Criterion;
+import ca.mcgill.distsys.hbase96.indexcommons.proto.IndexedColumnQuery;
+import ca.mcgill.distsys.hbase96.indexcommons.proto.Criterion.CompareType;
+import ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.AbstractPluggableIndex;
+import ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.protobuf.generated.IndexCoprocessorInMem.ProtoResult;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.math.util.MultidimensionalCounter.Iterator;

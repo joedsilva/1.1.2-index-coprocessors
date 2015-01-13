@@ -1,4 +1,4 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem;
 
 import java.util.HashMap;
 import java.util.concurrent.locks.ReadWriteLock;

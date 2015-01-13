@@ -1,4 +1,4 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridBased;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased;
 
 import java.io.Serializable;
 import java.util.TreeSet;
@@ -6,7 +6,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
+import ca.mcgill.distsys.hbase96.indexcommons.ByteUtil;
 
 public class HybridRowIndex implements Comparable<HybridRowIndex> ,  Serializable{
 

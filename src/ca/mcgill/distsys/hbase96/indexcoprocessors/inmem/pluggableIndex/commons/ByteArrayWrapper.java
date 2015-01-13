@@ -1,4 +1,4 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.commons;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.commons;
 
 import java.io.Serializable;
 import java.util.Arrays;

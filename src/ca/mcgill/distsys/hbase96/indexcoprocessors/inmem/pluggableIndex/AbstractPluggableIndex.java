@@ -1,4 +1,4 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex;
 
 import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
@@ -8,7 +8,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
+import ca.mcgill.distsys.hbase96.indexcommons.proto.Criterion;
 
 public abstract class AbstractPluggableIndex implements Serializable {
 

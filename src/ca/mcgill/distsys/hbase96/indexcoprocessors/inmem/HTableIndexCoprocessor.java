@@ -1,11 +1,11 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem;
 
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.IndexedColumn;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.SecondaryIndexConstants;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.Util;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Column;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.ColumnValue;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
+import ca.mcgill.distsys.hbase96.indexcommons.IndexedColumn;
+import ca.mcgill.distsys.hbase96.indexcommons.SecondaryIndexConstants;
+import ca.mcgill.distsys.hbase96.indexcommons.Util;
+import ca.mcgill.distsys.hbase96.indexcommons.proto.Column;
+import ca.mcgill.distsys.hbase96.indexcommons.proto.ColumnValue;
+import ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.AbstractPluggableIndex;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
