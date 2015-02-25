@@ -68,9 +68,10 @@ public class HybridRowIndex implements Comparable<HybridRowIndex> ,  Serializabl
 	}
 	
 	public static void main(String[] args) {
-		HybridRowIndex index1 = new HybridRowIndex(Bytes.toBytes("abc"));
-		HybridRowIndex index2 = new HybridRowIndex(Bytes.toBytes("ad"));
-		System.out.println(index2.compareTo(index1));
+		HybridRowIndex index1 = new HybridRowIndex(Bytes.toBytes(5));
+		HybridRowIndex index2 = new HybridRowIndex(Bytes.toBytes(10));
+		System.out.println(index1.compareTo(index2));
+
 
 	}
 
