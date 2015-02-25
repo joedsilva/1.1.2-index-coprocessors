@@ -1,9 +1,11 @@
 package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased;
 
-
+import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
 import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Range;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
+import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.commons.ByteArrayWrapper;
+import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased.IMBLTree.BNode;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -381,26 +383,49 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 			AbstractPluggableIndex daughterRegionB, byte[] splitRow) {
 
 		rwLock.writeLock().lock();
-
-		// Iterator<HybridRowIndex> keyIterator = sortedTree.iterator();
-		// BNode current = tree.getFirstLeafNode();
-		// IMBLTLeafNodeContentWrapper leafNodeContent;
-		// while (current != null) {
-		//
-		//
-		// HybridRowIndex key = keyIterator.next();
-		// byte[][] sortedPKRefArray = key.getPKRefsAsArray();
-		// int splitPoint = Arrays.binarySearch(sortedPKRefArray, splitRow,
-		// ByteUtil.BYTES_COMPARATOR);
-		// for (int i = 0; i < sortedPKRefArray.length; i++) {
-		// if ((splitPoint >= 0 && i < splitPoint)
-		// || (splitPoint < 0 && i < Math.abs(splitPoint + 1))) {
-		// daughterRegionA.add(key.getRowKey(), sortedPKRefArray[i]);
-		// } else {
-		// daughterRegionB.add(key.getRowKey(), sortedPKRefArray[i]);
-		// }
-		// }
-		// }
+		ArrayList<DeepCopyObject> list;
+		ByteArrayNodeValue tempValue;
+		for (DeepCopyObject value : map.keySet()) {
+			list = map.get(value);
+			for(int i = 0; i < list.size(); i++) {
+				tempValue = (ByteArrayNodeValue) list.get(i);
+				
+				byte[][] sortedPKRefArray = tempValue.getPKRefsAsArray();
+				int splitPoint = Arrays.binarySearch(sortedPKRefArray, splitRow,
+						ByteUtil.BYTES_COMPARATOR);
+				for (int j = 0; j < sortedPKRefArray.length; j++) {
+					if ((splitPoint >= 0 && j < splitPoint)
+							|| (splitPoint < 0 && j < Math.abs(splitPoint + 1))) {
+						daughterRegionA.add(tempValue.getRowKey(), sortedPKRefArray[j]);
+					} else {
+						daughterRegionB.add(tempValue.getRowKey(), sortedPKRefArray[j]);
+					}
+				}
+			}
+			
+		}
+		
+//		Iterator<HybridRowIndex> keyIterator = sortedTree.iterator();
+//		<DeepCopyObject> keySet= map.keySet();
+//		List<DeepCopyObject> list;
+//		for(int i = 0 ; i < keySet.size(); i++) {
+//			list = keySet.
+//		}
+//		while (current != null) {
+//
+//			HybridRowIndex key = keyIterator.next();
+//			byte[][] sortedPKRefArray = key.getPKRefsAsArray();
+//			int splitPoint = Arrays.binarySearch(sortedPKRefArray, splitRow,
+//					ByteUtil.BYTES_COMPARATOR);
+//			for (int i = 0; i < sortedPKRefArray.length; i++) {
+//				if ((splitPoint >= 0 && i < splitPoint)
+//						|| (splitPoint < 0 && i < Math.abs(splitPoint + 1))) {
+//					daughterRegionA.add(key.getRowKey(), sortedPKRefArray[i]);
+//				} else {
+//					daughterRegionB.add(key.getRowKey(), sortedPKRefArray[i]);
+//				}
+//			}
+//		}
 
 		rwLock.writeLock().unlock();
 	}
@@ -451,8 +476,8 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 		}
 
 		List<DeepCopyObject> list;
-//		hybrid.remove(Bytes.toBytes(98), Bytes.toBytes("I am #" + 100));
-//		hybrid.remove(Bytes.toBytes(99), Bytes.toBytes("I am #" + 101));
+		// hybrid.remove(Bytes.toBytes(98), Bytes.toBytes("I am #" + 100));
+		// hybrid.remove(Bytes.toBytes(99), Bytes.toBytes("I am #" + 101));
 		// range test 1
 		list = hybrid.tree.rangeSearch(new ByteArrayNodeKey(Bytes.toBytes(91)),
 				true, new ByteArrayNodeKey(Bytes.toBytes(100)), true);
