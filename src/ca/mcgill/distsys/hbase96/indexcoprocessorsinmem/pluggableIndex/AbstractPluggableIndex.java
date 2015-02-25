@@ -96,18 +96,18 @@ public abstract class AbstractPluggableIndex implements Serializable {
 		try {
 			classDefinition = Class.forName(indexType);
 			try {
-				// object = classDefinition.
-				// getConstructor(new Class[]{Object[].class}).
-				// newInstance(new Object[]{arguments});
-				Constructor con = getAppropriateConstructor(classDefinition,
-						arguments);
-				if (con == null) {
-					throw new IllegalArgumentException(
-							"Can't find appropriate constructor for class "
-									+ classDefinition + " and arguments "
-									+ Arrays.toString(arguments));
-				}
-				object = con.newInstance(arguments);
+				 object = classDefinition.
+				 getConstructor(new Class[]{Object[].class}).
+				 newInstance(new Object[]{arguments});
+//				Constructor con = getAppropriateConstructor(classDefinition,
+////						arguments);
+//				if (con == null) {
+//					throw new IllegalArgumentException(
+//							"Can't find appropriate constructor for class "
+//									+ indexType + " and arguments "
+//									+ Arrays.toString(arguments));
+//				}
+//				object = con.newInstance(arguments);
 			} catch (Exception e) {
 				LOG.error(e);
 			}

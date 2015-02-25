@@ -1,5 +1,6 @@
 package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -10,7 +11,12 @@ import java.util.concurrent.locks.ReentrantLock;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased.test.IntegerNode;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased.test.StringNode;
 
-public class IMBLTree {
+public class IMBLTree implements Serializable{
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -1577995491716001847L;
 
 	/** common interface for BTree node */
 	public interface BNode {
