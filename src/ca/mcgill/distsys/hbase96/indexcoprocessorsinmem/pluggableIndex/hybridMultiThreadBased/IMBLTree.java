@@ -400,7 +400,7 @@ public class IMBLTree implements Serializable {
 						// because it's leaf node
 						// yes key is already in tree
 						Object oldVal = A.vals()[pos - 1];
-						System.out.println("IMBLTree.put -> this is invalid");
+						//System.out.println("IMBLTree.put -> this is invalid");
 						A.vals()[pos - 1] = value;
 
 						// because A is deep copy, don't need to create new
