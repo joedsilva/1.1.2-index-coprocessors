@@ -11,7 +11,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased.test.IntegerNode;
 import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased.test.StringNode;
 
-public class IMBLTree implements Serializable{
+public class IMBLTree implements Serializable {
 
 	/**
 	 * 
@@ -298,7 +298,7 @@ public class IMBLTree implements Serializable{
 		if (key == null)
 			throw new NullPointerException();
 		DeepCopyObject v = (DeepCopyObject) key;
-	
+
 		BNode current = rootNode;
 		IMBLTNodeContentWrapper A = current.getNodeContent();
 
@@ -351,6 +351,9 @@ public class IMBLTree implements Serializable{
 		int stackPos = -1;
 		BNode[] stackVals = new BNode[4];
 
+		// This will points to the newly splitted node
+		// and unlock it when the correct parent is found
+		BNode previousLockedNode = null;
 		BNode current = rootNode;
 		IMBLTNodeContentWrapper A = current.getNodeContent();
 		// Proceed until a leaf node is found
@@ -393,6 +396,8 @@ public class IMBLTree implements Serializable{
 					if (pos < A.keys().length - 1 && v != null
 							&& A.keys()[pos] != null
 							&& 0 == comparator.compare(v, A.keys()[pos])) {
+						// We don't need to check previousLockedNode
+						// because it's leaf node
 						// yes key is already in tree
 						Object oldVal = A.vals()[pos - 1];
 						System.out.println("IMBLTree.put -> this is invalid");
@@ -430,6 +435,14 @@ public class IMBLTree implements Serializable{
 
 				} while (!found);
 
+				// Check if there is previousLockedNode
+				// if it's locked, unlock the node
+				if (previousLockedNode != null) {
+
+					previousLockedNode.releaseLock();
+
+				}
+
 				// case 2: key doesn't exist, need to add key as well as value
 				// most of the operation happens here
 				// this is because the value will be changed by hashtable, not
@@ -447,7 +460,7 @@ public class IMBLTree implements Serializable{
 						// the first item in the leaf node is null
 						// so we need to make the position as pos - 1
 						Object[] vals = arrayPut(A.vals(), pos - 1, value);
-						((ByteArrayNodeValue) value).setUpdateDone();
+						// ((ByteArrayNodeValue) value).setUpdateDone();
 						IMBLTLeafNodeContentWrapper n = new IMBLTLeafNodeContentWrapper(
 								(DeepCopyObject[]) keys,
 								(DeepCopyObject[]) vals,
@@ -469,7 +482,7 @@ public class IMBLTree implements Serializable{
 					// vals is for leaf node
 					final Object[] vals = (A.isLeaf()) ? arrayPut(A.vals(),
 							pos - 1, value) : null;
-					((ByteArrayNodeValue) value).setUpdateDone();
+					// ((ByteArrayNodeValue) value).setUpdateDone();
 					// final long[] child = A.isLeaf()? null :
 					// child is for inner node
 					final Object[] child = A.isLeaf() ? null : arrayPut(
@@ -490,7 +503,7 @@ public class IMBLTree implements Serializable{
 
 						B = new LeafNode();
 						B.setNodeContentWrapper(wrapper1);
-						
+
 					} else {
 						// create newly splitted dir node
 						IMBLTInnerNodeContentWrapper wrapper1 = new IMBLTInnerNodeContentWrapper(
@@ -516,7 +529,7 @@ public class IMBLTree implements Serializable{
 					} else {
 						Object[] child2 = Arrays.copyOf(child, splitPos + 1);
 						child2[splitPos] = q;
-						
+
 						A = new IMBLTInnerNodeContentWrapper(
 								(DeepCopyObject[]) Arrays.copyOf(keys,
 										splitPos + 1), (BNode[]) child2);
@@ -526,8 +539,13 @@ public class IMBLTree implements Serializable{
 
 					// insert the high key and pointer to the parent
 					if ((current != rootNode)) { // is not root
-						// unlock(nodeLocks, current);
-						current.releaseLock();
+						// according to the original algorithm, if the node is
+						// splitted,
+						// the original node will be locked until the correct
+						// correct parent
+						// node is found. So we don't release the lock here
+						// current.releaseLock();
+						previousLockedNode = current;
 						p = q;
 						v = (DeepCopyObject) A.highKey();
 						level = level + 1;
@@ -598,12 +616,13 @@ public class IMBLTree implements Serializable{
 						current.releaseLock();
 						return null;
 					}
-					
+
 					// there is a new valueNode with same key has been inserted!
-					if(((ByteArrayNodeValue) oldVal).getPKRefs().size() != 0) {
-						current.releaseLock();
-						return null;
-					}
+					// if(((ByteArrayNodeValue) oldVal).getPKRefs().size() != 0)
+					// {
+					// current.releaseLock();
+					// return null;
+					// }
 
 					DeepCopyObject[] keys2 = new DeepCopyObject[A.keys().length - 1];
 					// Copy the new keys
@@ -785,7 +804,6 @@ public class IMBLTree implements Serializable{
 
 		// case 4: lowerBound != null && upperBound != null && lowerBound <
 		// upperBound
-		
 
 		BNode current = this.getLowerNodeSublist(lowerBound, isInclusiveLower,
 				list);
@@ -906,7 +924,7 @@ public class IMBLTree implements Serializable{
 		}
 
 	}
-	
+
 	public BNode getFirstLeafNode() {
 		return this.leftEdges.get(0);
 	}
@@ -916,7 +934,7 @@ public class IMBLTree implements Serializable{
 		System.out.println("Test for BTreeMap.....");
 		IMBLTree treeMap = new IMBLTree(6, IMBLTree.COMPARABLE_COMPARATOR);
 		Hashtable<DeepCopyObject, DeepCopyObject> table = new Hashtable<DeepCopyObject, DeepCopyObject>();
-		
+
 		IntegerNode keyNode1 = new IntegerNode(1);
 		IntegerNode keyNode2 = new IntegerNode(2);
 		IntegerNode keyNode3 = new IntegerNode(3);
@@ -1019,7 +1037,7 @@ public class IMBLTree implements Serializable{
 		System.out.println(Arrays
 				.toString(treeMap.rangeSearch(new IntegerNode(17), true,
 						new IntegerNode(18), true).toArray()));
-		
+
 		// test doTrick method
 		System.out.println("Hello :)");
 		StringNode strNode = (StringNode) table.get(keyNode1);

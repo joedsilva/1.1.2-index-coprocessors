@@ -368,7 +368,7 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 	// + Bytes.toString(singleRowIndex.getRowKey()));
 	// System.out.print("RowIndexValues: ");
 	// for (byte[] value : singleRowIndex.getPKRefs()) {
-	// System.out.print(" " + Bytes.toString(value) + ",");
+	// System.out.print(" " + Bytes.toString(value) + ",");lk
 	// }
 	// System.out.println("");
 	// }
