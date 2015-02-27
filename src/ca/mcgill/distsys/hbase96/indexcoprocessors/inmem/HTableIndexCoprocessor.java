@@ -321,6 +321,7 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 			}
 		}
 
+		// This is because we create new regionIndex if regionIndex == null
 		if (regionIndex != null
 				&& RegionIndexMap.getInstance().get(regionName) == null) {
 			RegionIndexMap.getInstance().add(regionName, regionIndex);
@@ -964,8 +965,10 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 						}
 
 						// changed
-						updateTableIndexes(kVListToIndex, singleMappedIndex,
-								result, regionIndex, put.getRow());
+						if( result != null) {
+							updateTableIndexes(kVListToIndex, singleMappedIndex,
+									result, regionIndex, put.getRow());
+						}
 
 						// updateTableIndexes(kVListToIndex, result,
 						// regionIndex);
@@ -1045,8 +1048,10 @@ public class HTableIndexCoprocessor extends BaseRegionObserver {
 										+ "indexed column value.", IOe);
 						throw IOe;
 					}
-					updateTableIndexesForDelete(result, singleMappedIndex,
-							regionIndex, indexedColumns, delete);
+					if(result != null) {
+						updateTableIndexesForDelete(result, singleMappedIndex,
+								regionIndex, indexedColumns, delete);
+					}
 				}
 			}
 		}
