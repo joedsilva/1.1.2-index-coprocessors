@@ -460,7 +460,7 @@ public class IMBLTree implements Serializable {
 						// the first item in the leaf node is null
 						// so we need to make the position as pos - 1
 						Object[] vals = arrayPut(A.vals(), pos - 1, value);
-						// ((ByteArrayNodeValue) value).setUpdateDone();
+						((ByteArrayNodeValue) value).setUpdateDone();
 						IMBLTLeafNodeContentWrapper n = new IMBLTLeafNodeContentWrapper(
 								(DeepCopyObject[]) keys,
 								(DeepCopyObject[]) vals,
@@ -482,7 +482,7 @@ public class IMBLTree implements Serializable {
 					// vals is for leaf node
 					final Object[] vals = (A.isLeaf()) ? arrayPut(A.vals(),
 							pos - 1, value) : null;
-					// ((ByteArrayNodeValue) value).setUpdateDone();
+					((ByteArrayNodeValue) value).setUpdateDone();
 					// final long[] child = A.isLeaf()? null :
 					// child is for inner node
 					final Object[] child = A.isLeaf() ? null : arrayPut(
@@ -618,11 +618,11 @@ public class IMBLTree implements Serializable {
 					}
 
 					// there is a new valueNode with same key has been inserted!
-					// if(((ByteArrayNodeValue) oldVal).getPKRefs().size() != 0)
-					// {
-					// current.releaseLock();
-					// return null;
-					// }
+					 if(((ByteArrayNodeValue) oldVal).getPKRefs().size() != 0)
+					 {
+					 current.releaseLock();
+					 return null;
+					 }
 
 					DeepCopyObject[] keys2 = new DeepCopyObject[A.keys().length - 1];
 					// Copy the new keys
