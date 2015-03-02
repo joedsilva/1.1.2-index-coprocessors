@@ -1,6 +1,6 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased2;
 import java.io.Serializable;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased.test.*;
+import ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased2.test.*;
 
 public abstract class DeepCopyObject implements Comparable<DeepCopyObject>, Serializable{
 	

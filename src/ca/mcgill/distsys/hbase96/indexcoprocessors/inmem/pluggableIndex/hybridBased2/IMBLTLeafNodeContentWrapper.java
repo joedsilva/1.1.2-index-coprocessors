@@ -1,7 +1,7 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased2;
 
 import java.util.Arrays;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased.IMBLTree.BNode;;
+import ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased2.IMBLTree.BNode;
 
 
 public class IMBLTLeafNodeContentWrapper implements IMBLTNodeContentWrapper{

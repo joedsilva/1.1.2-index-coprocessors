@@ -1,5 +1,5 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased.IMBLTree.BNode;;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased2;
+import ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased2.IMBLTree.BNode;
 
 public interface IMBLTNodeContentWrapper {
 	

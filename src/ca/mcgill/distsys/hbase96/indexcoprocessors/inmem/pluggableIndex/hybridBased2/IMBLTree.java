@@ -1,4 +1,4 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased2;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -8,8 +8,8 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased.test.IntegerNode;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased.test.StringNode;
+import ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased2.test.IntegerNode;
+import ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased2.test.StringNode;
 
 public class IMBLTree implements Serializable {
 

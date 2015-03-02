@@ -1,11 +1,11 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased2;
 
 import java.util.TreeSet;
 
 
 import org.apache.hadoop.hbase.util.Bytes;
 
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
+import ca.mcgill.distsys.hbase96.indexcommons.ByteUtil;
 
 public class ByteArrayNodeValue extends DeepCopyObject{
 

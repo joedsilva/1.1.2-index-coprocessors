@@ -1,11 +1,9 @@
-package ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased;
+package ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.hybridBased2;
 
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.ByteUtil;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Criterion;
-import ca.mcgill.distsys.hbase96.indexcommonsinmem.proto.Range;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.AbstractPluggableIndex;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.commons.ByteArrayWrapper;
-import ca.mcgill.distsys.hbase96.indexcoprocessorsinmem.pluggableIndex.hybridMultiThreadBased.IMBLTree.BNode;
+import ca.mcgill.distsys.hbase96.indexcommons.ByteUtil;
+import ca.mcgill.distsys.hbase96.indexcommons.proto.Criterion;
+import ca.mcgill.distsys.hbase96.indexcommons.proto.Range;
+import ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.pluggableIndex.AbstractPluggableIndex;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -32,7 +30,8 @@ import java.util.TreeSet;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class HybridIndex extends AbstractPluggableIndex implements Serializable {
+public class HybridIndex extends AbstractPluggableIndex
+    implements Serializable {
 
 	/**
 	 *
@@ -272,7 +271,7 @@ public class HybridIndex extends AbstractPluggableIndex implements Serializable 
 
 	}
 
-	@Override
+  @Override
 	public Set<byte[]> filterRowsFromCriteria(Criterion<?> criterion) {
 		rwLock.readLock().lock();
 
