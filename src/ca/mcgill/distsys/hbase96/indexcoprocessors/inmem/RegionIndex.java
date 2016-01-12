@@ -12,6 +12,8 @@ import ca.mcgill.distsys.hbase96.indexcoprocessors.inmem.protobuf.generated.Inde
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.math.util.MultidimensionalCounter.Iterator;
+import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.filter.FilterList;
@@ -365,23 +367,34 @@ public class RegionIndex implements Serializable {
 		return null;
 	}
 
+  private static final byte[] EMPTY = new byte[0];
+
 	private List<ProtoResult> prefilteredLocalMultiGet(Set<byte[]> rows,
 			FilterList filterList, List<Column> columnList, HRegion region)
 	throws IOException {
 
-		List<ProtoResult> resultList = new ArrayList<ProtoResult>(rows.size());
+    List<ProtoResult> resultList = new ArrayList<ProtoResult>(rows.size());
 
 		for (byte[] row : rows) {
-			Get get = new Get(row);
-			for (Column col : columnList) {
-				get.addColumn(col.getFamily(), col.getQualifier());
-			}
-			get.setFilter(filterList);
+      // Check for empty projection
+      if (columnList.isEmpty()) {
+        Cell c = new KeyValue(row, EMPTY, EMPTY, EMPTY);
+        Result r = Result.create(Arrays.asList(c));
+        resultList.add(Util.toResult(r));
+      }
 
-			Result result = region.get(get);
-			if (result != null && !result.isEmpty()) {
-				resultList.add(Util.toResult(result));
-			}
+      else {
+        Get get = new Get(row);
+        for (Column col : columnList) {
+          get.addColumn(col.getFamily(), col.getQualifier());
+        }
+        get.setFilter(filterList);
+
+        Result result = region.get(get);
+        if (result != null && !result.isEmpty()) {
+          resultList.add(Util.toResult(result));
+        }
+      }
 		}
 
 		return resultList;
